@@ -11,39 +11,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const previewsSchema = `
-CREATE TABLE IF NOT EXISTS previews (
-  id TEXT PRIMARY KEY,
-  prefix TEXT NOT NULL,
-  port INTEGER NOT NULL CHECK (port BETWEEN 1 AND 65535),
-  status TEXT NOT NULL CHECK (status IN ('active', 'deleted', 'expired')),
-  created_at DATETIME NOT NULL,
-  last_access_at DATETIME NOT NULL,
-  expires_at DATETIME NOT NULL,
-  ended_at DATETIME NULL
-);
-`
-
-const previewIndexesSchema = `
-CREATE UNIQUE INDEX IF NOT EXISTS previews_active_prefix
-ON previews(prefix) WHERE status = 'active';
-`
-
-const eventsSchema = `
-CREATE TABLE IF NOT EXISTS preview_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  preview_id TEXT NOT NULL REFERENCES previews(id),
-  event_type TEXT NOT NULL,
-  occurred_at DATETIME NOT NULL,
-  details TEXT NULL CHECK (details IS NULL OR json_valid(details))
-);
-`
-
-const eventIndexesSchema = `
-CREATE INDEX IF NOT EXISTS preview_events_preview_time
-ON preview_events(preview_id, occurred_at);
-`
-
 type SQLiteStore struct {
 	db *sql.DB
 }
@@ -58,11 +25,9 @@ func OpenSQLite(ctx context.Context, path string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	for _, statement := range []string{previewsSchema, previewIndexesSchema, eventsSchema, eventIndexesSchema} {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("initialize sqlite schema: %w", err)
-		}
+	if err := migrate(ctx, db); err != nil {
+		db.Close()
+		return nil, err
 	}
 	return &SQLiteStore{db: db}, nil
 }

@@ -14,6 +14,9 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if version := schemaVersion(t, store.db); version != 1 {
+		t.Fatalf("schema version=%d, want 1", version)
+	}
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	first := Preview{
 		ID: "first", Prefix: "feature", Port: 3000, Status: StatusActive,

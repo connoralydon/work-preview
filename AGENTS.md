@@ -15,3 +15,4 @@ The default prefix is `<short-commit>-<branch>-<repo>`, with random hexadecimal 
 - Generate protobuf code with `go generate ./...`.
 - Run `go test ./...` and `nix flake check` before finishing.
 - Keep SQLite as the source of truth and write Caddy snippets atomically.
+- Add schema changes as contiguous numbered files under `internal/preview/migrations/`.
