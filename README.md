@@ -1,12 +1,27 @@
 # work-preview
 
-`work-preview` gives same-host development servers temporary HTTPS hostnames. A local gRPC service records previews in MySQL, writes one Caddy site file per preview, and gracefully reloads a parent Caddyfile. A preview expires after one hour without HTTP traffic.
+`work-preview` gives loopback development servers temporary HTTPS hostnames. It stores previews in embedded SQLite, writes atomic Caddy site files, and expires previews after one hour without HTTP traffic.
 
-The parent Caddyfile must contain:
+## NixOS
+
+Import the generated sites from the parent Caddyfile:
 
 ```caddyfile
 import /run/work-preview/caddy/*.caddy
 ```
+
+Then import this flake's `nixosModules.default` and configure:
+
+```nix
+services.work-preview = {
+  enable = true;
+  tlsCertificateFile = "/run/secrets/cloudflare.crt";
+  tlsCertificateKeyFile = "/run/secrets/cloudflare.key";
+  groupMembers = [ "agent-user" ];
+};
+```
+
+The fixed WAL-enabled database is `/var/lib/work-preview/work-preview.db`. Lifecycle events are recorded transactionally in `preview_events`; no separate database service or port is used.
 
 ## Usage
 
@@ -15,8 +30,6 @@ work-preview expose --port 3000
 work-preview list
 work-preview delete <preview-id>
 ```
-
-The NixOS module is available as `nixosModules.default`. Its Cloudflare origin certificate and key paths stay outside the Nix store.
 
 ## Development
 

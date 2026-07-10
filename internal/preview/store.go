@@ -17,4 +17,13 @@ type Store interface {
 	GetActive(context.Context, string) (Preview, error)
 	Touch(context.Context, string, time.Time, time.Time) error
 	SetStatus(context.Context, string, string, time.Time) error
+	RecordEvent(context.Context, string, string, time.Time, string) error
 }
+
+const (
+	EventCreated      = "created"
+	EventAccessed     = "accessed"
+	EventDeleted      = "deleted"
+	EventExpired      = "expired"
+	EventReloadFailed = "reload_failed"
+)

@@ -17,7 +17,7 @@
         pname = "work-preview";
         version = "0.1.0";
         src = self;
-        vendorHash = "sha256-NDOtGXPKkjSgO8n+r66qeGWkqx4gTEBAcYRz33qAqH4=";
+        vendorHash = "sha256-jSLflxFT1q5XF3qQj4hu+BGJWuaxz4ddG3D3Vl2v3H4=";
         subPackages = ["cmd/work-preview"];
         meta.mainProgram = "work-preview";
       };
@@ -32,7 +32,7 @@
 
     checks = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
-      moduleConfig =
+      evaluatedModule =
         (nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [
@@ -48,11 +48,18 @@
               };
             }
           ];
-        }).config.systemd.services.work-preview.serviceConfig.ExecStart;
+        }).config;
+      moduleCommand = evaluatedModule.systemd.services.work-preview.serviceConfig.ExecStart;
     in {
       inherit (self.packages.${system}) default;
       module = pkgs.runCommand "work-preview-module-check" {
-        service = moduleConfig;
+        service = moduleCommand;
+        embeddedDatabase =
+          if
+            nixpkgs.lib.hasInfix "--database /var/lib/work-preview/work-preview.db" moduleCommand
+            && !nixpkgs.lib.hasInfix "mysql" moduleCommand
+          then "yes"
+          else throw "work-preview must use its embedded SQLite database";
       } "touch $out";
     });
 
@@ -65,10 +72,10 @@
           go
           gopls
           gotools
-          mariadb
           protobuf
           protoc-gen-go
           protoc-gen-go-grpc
+          sqlite
         ];
       };
     });

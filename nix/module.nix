@@ -69,22 +69,6 @@ in {
       description = "Interval for observing access logs and expiring previews.";
     };
 
-    databaseName = mkOption {
-      type = types.str;
-      default = "work_preview";
-    };
-
-    databaseUser = mkOption {
-      type = types.str;
-      default = "work-preview";
-    };
-
-    mysqlPackage = mkOption {
-      type = types.package;
-      default = pkgs.mariadb;
-      description = "MySQL-compatible server package.";
-    };
-
     groupMembers = mkOption {
       type = types.listOf types.str;
       default = [];
@@ -106,18 +90,6 @@ in {
       group = "work-preview";
     };
 
-    services.mysql = {
-      enable = true;
-      package = cfg.mysqlPackage;
-      ensureDatabases = [cfg.databaseName];
-      ensureUsers = [
-        {
-          name = cfg.databaseUser;
-          ensurePermissions."${cfg.databaseName}.*" = "ALL PRIVILEGES";
-        }
-      ];
-    };
-
     systemd.tmpfiles.rules = [
       "d ${cfg.logDirectory} 0770 caddy work-preview - -"
     ];
@@ -125,8 +97,7 @@ in {
     systemd.services.work-preview = {
       description = "Ephemeral development preview controller";
       wantedBy = ["multi-user.target"];
-      after = ["mysql.service" "caddy.service"];
-      requires = ["mysql.service"];
+      after = ["caddy.service"];
       serviceConfig = {
         User = "work-preview";
         Group = "work-preview";
@@ -134,11 +105,13 @@ in {
         # Caddy must traverse this directory to read imported snippets. The
         # control socket itself remains group-restricted.
         RuntimeDirectoryMode = "0755";
+        StateDirectory = "work-preview";
+        StateDirectoryMode = "0750";
         ExecStart = lib.escapeShellArgs [
           "${cfg.package}/bin/work-preview"
           "serve"
-          "--mysql-dsn"
-          "${cfg.databaseUser}@unix(/run/mysqld/mysqld.sock)/${cfg.databaseName}?parseTime=true"
+          "--database"
+          "/var/lib/work-preview/work-preview.db"
           "--domain"
           cfg.domain
           "--snippet-dir"

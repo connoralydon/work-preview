@@ -14,4 +14,4 @@ Use `--prefix <dns-label>` only when a stable human-readable name is useful. Do 
 - Enter the toolchain with `nix develop`.
 - Generate protobuf code with `go generate ./...`.
 - Run `go test ./...` and `nix flake check` before finishing.
-- Keep MySQL as the source of truth and write Caddy snippets atomically.
+- Keep SQLite as the source of truth and write Caddy snippets atomically.

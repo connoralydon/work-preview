@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -54,8 +53,7 @@ func usage() {
 
 func serve(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
-	dsn := fs.String("mysql-dsn", os.Getenv("WORK_PREVIEW_MYSQL_DSN"), "MySQL DSN")
-	dsnFile := fs.String("mysql-dsn-file", "", "file containing the MySQL DSN")
+	database := fs.String("database", "/var/lib/work-preview/work-preview.db", "SQLite database file")
 	domain := fs.String("domain", "p.boringbison.xyz", "preview domain suffix")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	snippetDir := fs.String("snippet-dir", "/run/work-preview/caddy", "generated Caddyfile directory")
@@ -70,19 +68,12 @@ func serve(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *dsnFile != "" {
-		value, err := os.ReadFile(*dsnFile)
-		if err != nil {
-			return fmt.Errorf("read MySQL DSN: %w", err)
-		}
-		*dsn = strings.TrimSpace(string(value))
-	}
-	if *dsn == "" || *certificate == "" || *certificateKey == "" {
-		return errors.New("mysql-dsn, tls-cert, and tls-key are required")
+	if *database == "" || *certificate == "" || *certificateKey == "" {
+		return errors.New("database, tls-cert, and tls-key are required")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	store, err := preview.OpenMySQL(ctx, *dsn)
+	store, err := preview.OpenSQLite(ctx, *database)
 	if err != nil {
 		return err
 	}

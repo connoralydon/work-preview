@@ -45,6 +45,9 @@ func (s *rpcStore) SetStatus(_ context.Context, id, status string, _ time.Time) 
 	s.previews[id] = p
 	return nil
 }
+func (s *rpcStore) RecordEvent(context.Context, string, string, time.Time, string) error {
+	return nil
+}
 
 type rpcReloader struct{ calls int }
 

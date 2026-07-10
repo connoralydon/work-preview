@@ -12,6 +12,12 @@ import (
 
 type memoryStore struct {
 	previews map[string]Preview
+	events   []recordedEvent
+}
+
+type recordedEvent struct {
+	id, eventType, details string
+	at                     time.Time
 }
 
 func newMemoryStore() *memoryStore { return &memoryStore{previews: map[string]Preview{}} }
@@ -61,6 +67,11 @@ func (s *memoryStore) SetStatus(_ context.Context, id, status string, _ time.Tim
 	}
 	p.Status = status
 	s.previews[id] = p
+	return nil
+}
+
+func (s *memoryStore) RecordEvent(_ context.Context, id, eventType string, at time.Time, details string) error {
+	s.events = append(s.events, recordedEvent{id: id, eventType: eventType, at: at, details: details})
 	return nil
 }
 
@@ -207,6 +218,9 @@ func TestDeleteRestoresSnippetWhenReloadFails(t *testing.T) {
 	}
 	if store.previews[p.ID].Status != StatusActive {
 		t.Fatalf("status=%s, want active", store.previews[p.ID].Status)
+	}
+	if len(store.events) != 1 || store.events[0].eventType != EventReloadFailed || !strings.Contains(store.events[0].details, "invalid caddy config") {
+		t.Fatalf("unexpected failure events: %+v", store.events)
 	}
 }
 

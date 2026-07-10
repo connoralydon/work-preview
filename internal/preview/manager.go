@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -54,6 +55,7 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 		return Preview{}, fmt.Errorf("write caddy snippet: %w", err)
 	}
 	if err := m.Reloader.Reload(ctx); err != nil {
+		m.recordReloadFailure(ctx, p.ID, err)
 		_ = m.Files.Remove(p.ID)
 		_ = m.Store.SetStatus(ctx, p.ID, StatusDeleted, now)
 		return Preview{}, err
@@ -70,6 +72,7 @@ func (m *Manager) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := m.Reloader.Reload(ctx); err != nil {
+		m.recordReloadFailure(ctx, p.ID, err)
 		_ = m.Files.Write(p)
 		return err
 	}
@@ -99,7 +102,13 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			return err
 		}
 	}
-	return m.Reloader.Reload(ctx)
+	if err := m.Reloader.Reload(ctx); err != nil {
+		for _, p := range previews {
+			m.recordReloadFailure(ctx, p.ID, err)
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *Manager) Sweep(ctx context.Context) error {
@@ -134,6 +143,7 @@ func (m *Manager) Sweep(ctx context.Context) error {
 	}
 	if err := m.Reloader.Reload(ctx); err != nil {
 		for _, p := range expired {
+			m.recordReloadFailure(ctx, p.ID, err)
 			_ = m.Files.Write(p)
 		}
 		return err
@@ -145,6 +155,14 @@ func (m *Manager) Sweep(ctx context.Context) error {
 		_ = os.Remove(m.Files.LogPath(p.ID))
 	}
 	return nil
+}
+
+func (m *Manager) recordReloadFailure(ctx context.Context, id string, reloadErr error) {
+	details, err := json.Marshal(map[string]string{"error": reloadErr.Error()})
+	if err != nil {
+		return
+	}
+	_ = m.Store.RecordEvent(ctx, id, EventReloadFailed, m.now(), string(details))
 }
 
 func (m *Manager) now() time.Time {
