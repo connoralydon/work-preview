@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package workpreview.v1;
+
+option go_package = "boringbison.xyz/work-preview/api/v1;previewv1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service PreviewService {
+  rpc CreatePreview(CreatePreviewRequest) returns (Preview);
+  rpc DeletePreview(DeletePreviewRequest) returns (google.protobuf.Empty);
+  rpc ListPreviews(google.protobuf.Empty) returns (ListPreviewsResponse);
+}
+
+message CreatePreviewRequest {
+  uint32 port = 1;
+  string prefix = 2;
+}
+
+message DeletePreviewRequest {
+  string id = 1;
+}
+
+message Preview {
+  string id = 1;
+  string prefix = 2;
+  uint32 port = 3;
+  string url = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_access_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message ListPreviewsResponse {
+  repeated Preview previews = 1;
+}
