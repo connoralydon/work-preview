@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -134,11 +136,14 @@ func sweep(ctx context.Context, manager *preview.Manager, interval time.Duration
 func expose(args []string) error {
 	fs := flag.NewFlagSet("expose", flag.ContinueOnError)
 	port := fs.Uint("port", 0, "loopback dev-server port")
-	prefix := fs.String("prefix", "", "optional hostname prefix")
+	prefix := fs.String("prefix", "", "hostname prefix (default: short commit, branch, and repository)")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	jsonOutput := fs.Bool("json", false, "print JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *prefix == "" {
+		*prefix = defaultGitPrefix()
 	}
 	conn, client, err := client(*socket)
 	if err != nil {
@@ -154,6 +159,70 @@ func expose(args []string) error {
 	}
 	fmt.Printf("%s\t%s\n", p.Id, p.Url)
 	return nil
+}
+
+func defaultGitPrefix() string {
+	root, err := gitOutput("rev-parse", "--show-toplevel")
+	if err != nil {
+		return ""
+	}
+	commit, err := gitOutput("rev-parse", "--short=12", "HEAD")
+	if err != nil {
+		return ""
+	}
+	branch, err := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return ""
+	}
+	if branch == "HEAD" {
+		branch = "detached"
+	}
+	return formatGitPrefix(commit, branch, filepath.Base(root))
+}
+
+func gitOutput(args ...string) (string, error) {
+	output, err := exec.Command("git", args...).Output()
+	return strings.TrimSpace(string(output)), err
+}
+
+func formatGitPrefix(commit, branch, repository string) string {
+	commit = truncateLabel(dnsLabel(commit), 12)
+	repository = truncateLabel(dnsLabel(repository), 24)
+	branch = dnsLabel(branch)
+	if commit == "" || branch == "" || repository == "" {
+		return ""
+	}
+	branch = truncateLabel(branch, 63-len(commit)-len(repository)-2)
+	if branch == "" {
+		return ""
+	}
+	return commit + "-" + branch + "-" + repository
+}
+
+func dnsLabel(value string) string {
+	value = strings.ToLower(value)
+	var result strings.Builder
+	separator := false
+	for _, char := range value {
+		if char >= 'a' && char <= 'z' || char >= '0' && char <= '9' {
+			result.WriteRune(char)
+			separator = false
+		} else if result.Len() > 0 && !separator {
+			result.WriteByte('-')
+			separator = true
+		}
+	}
+	return strings.Trim(result.String(), "-")
+}
+
+func truncateLabel(value string, length int) string {
+	if length <= 0 {
+		return ""
+	}
+	if len(value) > length {
+		value = value[:length]
+	}
+	return strings.Trim(value, "-")
 }
 
 func deletePreview(args []string) error {

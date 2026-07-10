@@ -33,6 +33,8 @@ work-preview list
 work-preview delete <preview-id>
 ```
 
+When `--prefix` is omitted, `expose` derives `<short-commit>-<branch>-<repo>` from the current Git worktree and sanitizes it as a DNS label. Outside a Git repository, the daemon generates a random prefix. Pass `--prefix <name>` to override it.
+
 ## Development
 
 ```sh

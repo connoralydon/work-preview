@@ -7,7 +7,7 @@
 3. Report the returned HTTPS URL and retain the returned preview ID.
 4. Delete it with `work-preview delete <id>` when finished. Otherwise it expires after one hour without HTTP traffic.
 
-Use `--prefix <dns-label>` only when a stable human-readable name is useful. Do not edit generated files under `/run/work-preview/caddy`.
+The default prefix is `<short-commit>-<branch>-<repo>`. Use `--prefix <dns-label>` only to override it. Do not edit generated files under `/run/work-preview/caddy`.
 
 ## Work on this repository
 
