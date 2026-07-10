@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -158,20 +160,32 @@ func expose(args []string) error {
 func defaultGitPrefix() string {
 	root, err := gitOutput("rev-parse", "--show-toplevel")
 	if err != nil {
-		return ""
+		return randomHexID()
 	}
 	commit, err := gitOutput("rev-parse", "--short=12", "HEAD")
 	if err != nil {
-		return ""
+		return randomHexID()
 	}
 	branch, err := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return ""
+		return randomHexID()
 	}
 	if branch == "HEAD" {
 		branch = "detached"
 	}
-	return formatGitPrefix(commit, branch, filepath.Base(root))
+	prefix := formatGitPrefix(commit, branch, filepath.Base(root))
+	if prefix == "" {
+		return randomHexID()
+	}
+	return prefix
+}
+
+func randomHexID() string {
+	value := make([]byte, 6)
+	if _, err := rand.Read(value); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(value)
 }
 
 func gitOutput(args ...string) (string, error) {

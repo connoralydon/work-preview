@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 	}
 	if prefix == "" {
 		var err error
-		prefix, err = randomToken(10)
+		prefix, err = randomHexToken(6)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -182,4 +183,12 @@ func randomToken(length int) (string, error) {
 		b[i] = alphabet[int(b[i])%len(alphabet)]
 	}
 	return string(b), nil
+}
+
+func randomHexToken(size int) (string, error) {
+	value := make([]byte, size)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(value), nil
 }

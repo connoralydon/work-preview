@@ -2,6 +2,7 @@ package preview
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -148,6 +149,21 @@ func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 	}
 	if _, err := manager.Create(context.Background(), "same", 3001); !errors.Is(err, ErrPrefixConflict) {
 		t.Fatalf("got %v, want ErrPrefixConflict", err)
+	}
+}
+
+func TestCreateUsesRandomHexPrefix(t *testing.T) {
+	now := time.Now().UTC()
+	manager, _, _ := testManager(t, &now)
+	p, err := manager.Create(context.Background(), "", 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Prefix) != 12 {
+		t.Fatalf("prefix length=%d, want 12: %q", len(p.Prefix), p.Prefix)
+	}
+	if _, err := hex.DecodeString(p.Prefix); err != nil {
+		t.Fatalf("prefix=%q is not hexadecimal: %v", p.Prefix, err)
 	}
 }
 

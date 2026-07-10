@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"strings"
 	"testing"
 )
@@ -28,6 +29,16 @@ func TestFormatGitPrefix(t *testing.T) {
 				t.Fatalf("formatGitPrefix()=%q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestRandomHexID(t *testing.T) {
+	id := randomHexID()
+	if len(id) != 12 {
+		t.Fatalf("randomHexID() length=%d, want 12", len(id))
+	}
+	if _, err := hex.DecodeString(id); err != nil {
+		t.Fatalf("randomHexID()=%q is not hexadecimal: %v", id, err)
 	}
 }
 
