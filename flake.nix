@@ -42,8 +42,6 @@
               services.work-preview = {
                 enable = true;
                 package = pkgs.writeShellScriptBin "work-preview" "exit 0";
-                tlsCertificateFile = "/run/secrets/cloudflare.crt";
-                tlsCertificateKeyFile = "/run/secrets/cloudflare.key";
                 groupMembers = ["agent"];
               };
             }
@@ -58,6 +56,7 @@
           if
             nixpkgs.lib.hasInfix "--database /var/lib/work-preview/work-preview.db" moduleCommand
             && !nixpkgs.lib.hasInfix "mysql" moduleCommand
+            && !nixpkgs.lib.hasInfix "--tls-cert" moduleCommand
           then "yes"
           else throw "work-preview must use its embedded SQLite database";
       } "touch $out";

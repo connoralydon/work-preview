@@ -68,8 +68,11 @@ func serve(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *database == "" || *certificate == "" || *certificateKey == "" {
-		return errors.New("database, tls-cert, and tls-key are required")
+	if *database == "" {
+		return errors.New("database is required")
+	}
+	if (*certificate == "") != (*certificateKey == "") {
+		return errors.New("tls-cert and tls-key must be provided together")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
