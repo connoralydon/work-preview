@@ -280,7 +280,7 @@ const file_api_v1_preview_proto_rawDesc = "" +
 	"\x0ePreviewService\x12N\n" +
 	"\rCreatePreview\x12$.workpreview.v1.CreatePreviewRequest\x1a\x17.workpreview.v1.Preview\x12M\n" +
 	"\rDeletePreview\x12$.workpreview.v1.DeletePreviewRequest\x1a\x16.google.protobuf.Empty\x12L\n" +
-	"\fListPreviews\x12\x16.google.protobuf.Empty\x1a$.workpreview.v1.ListPreviewsResponseB/Z-boringbison.xyz/work-preview/api/v1;previewv1b\x06proto3"
+	"\fListPreviews\x12\x16.google.protobuf.Empty\x1a$.workpreview.v1.ListPreviewsResponseB7Z5github.com/connoralydon/work-preview/api/v1;previewv1b\x06proto3"
 
 var (
 	file_api_v1_preview_proto_rawDescOnce sync.Once

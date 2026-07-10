@@ -17,9 +17,9 @@ import (
 	"syscall"
 	"time"
 
-	previewv1 "boringbison.xyz/work-preview/api/v1"
-	"boringbison.xyz/work-preview/internal/control"
-	"boringbison.xyz/work-preview/internal/preview"
+	previewv1 "github.com/connoralydon/work-preview/api/v1"
+	"github.com/connoralydon/work-preview/internal/control"
+	"github.com/connoralydon/work-preview/internal/preview"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"

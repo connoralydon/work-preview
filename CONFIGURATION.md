@@ -7,13 +7,13 @@ Use `work-preview` as a flake input and import its NixOS module into the host th
 ```nix
 {
   inputs.work-preview = {
-    url = "git+ssh://git@git.boringbison.xyz:2222/connoralydon/work-preview.git";
+    url = "github:connoralydon/work-preview";
     inputs.nixpkgs.follows = "nixpkgs";
   };
 }
 ```
 
-The user updating the config repository lock file must have SSH access to `git.boringbison.xyz:2222`. Commit the resulting `flake.lock` change so deployments use a pinned revision.
+Commit the resulting `flake.lock` change so deployments use a pinned revision.
 
 Add the module to the appropriate `nixosSystem`:
 

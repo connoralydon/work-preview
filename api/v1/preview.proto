@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package workpreview.v1;
 
-option go_package = "boringbison.xyz/work-preview/api/v1;previewv1";
+option go_package = "github.com/connoralydon/work-preview/api/v1;previewv1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

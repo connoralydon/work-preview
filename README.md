@@ -1,4 +1,4 @@
-# work-preview
+# [work-preview](https://github.com/connoralydon/work-preview)
 
 `work-preview` gives loopback development servers temporary HTTPS hostnames. It stores previews in embedded SQLite, writes atomic Caddy site files, and expires previews after one hour without HTTP traffic.
 

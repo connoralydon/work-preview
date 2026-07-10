@@ -1,4 +1,4 @@
-module boringbison.xyz/work-preview
+module github.com/connoralydon/work-preview
 
 go 1.25.0
 

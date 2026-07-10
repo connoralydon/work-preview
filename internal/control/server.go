@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	previewv1 "boringbison.xyz/work-preview/api/v1"
-	"boringbison.xyz/work-preview/internal/preview"
+	previewv1 "github.com/connoralydon/work-preview/api/v1"
+	"github.com/connoralydon/work-preview/internal/preview"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
