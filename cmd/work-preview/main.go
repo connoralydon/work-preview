@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -75,6 +76,7 @@ func serve(args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	store, err := preview.OpenSQLite(ctx, *database)
 	if err != nil {
 		return err
@@ -87,6 +89,7 @@ func serve(args []string) error {
 		},
 		Reloader: preview.CommandReloader{Binary: *caddyBin, ConfigFile: *caddyfile, Address: *caddyAddress},
 		TTL:      *ttl,
+		Logger:   logger,
 	}
 	if err := manager.Reconcile(ctx); err != nil {
 		return fmt.Errorf("reconcile previews: %w", err)
@@ -106,7 +109,7 @@ func serve(args []string) error {
 	}
 	grpcServer := grpc.NewServer()
 	previewv1.RegisterPreviewServiceServer(grpcServer, &control.Server{Manager: manager, Domain: *domain})
-	go sweep(ctx, manager, *sweepInterval)
+	go sweep(ctx, manager, logger, *sweepInterval)
 	go func() {
 		<-ctx.Done()
 		grpcServer.GracefulStop()
@@ -114,7 +117,7 @@ func serve(args []string) error {
 	return grpcServer.Serve(listener)
 }
 
-func sweep(ctx context.Context, manager *preview.Manager, interval time.Duration) {
+func sweep(ctx context.Context, manager *preview.Manager, logger *slog.Logger, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -123,7 +126,7 @@ func sweep(ctx context.Context, manager *preview.Manager, interval time.Duration
 			return
 		case <-ticker.C:
 			if err := manager.Sweep(ctx); err != nil {
-				fmt.Fprintln(os.Stderr, "work-preview: sweep:", err)
+				logger.ErrorContext(ctx, "preview sweep failed", "error", err)
 			}
 		}
 	}

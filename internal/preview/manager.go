@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +23,7 @@ type Manager struct {
 	Reloader Reloader
 	TTL      time.Duration
 	Now      func() time.Time
+	Logger   *slog.Logger
 }
 
 func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Preview, error) {
@@ -61,6 +63,12 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 		_ = m.Store.SetStatus(ctx, p.ID, StatusDeleted, now)
 		return Preview{}, err
 	}
+	m.logger().InfoContext(ctx, "preview created",
+		"preview_id", p.ID,
+		"prefix", p.Prefix,
+		"port", p.Port,
+		"expires_at", p.ExpiresAt,
+	)
 	return p, nil
 }
 
@@ -127,12 +135,26 @@ func (m *Manager) Sweep(ctx context.Context) error {
 			if err := m.Store.Touch(ctx, p.ID, p.LastAccessAt, p.ExpiresAt); err != nil {
 				return err
 			}
+			m.logger().InfoContext(ctx, "preview traffic detected",
+				"preview_id", p.ID,
+				"prefix", p.Prefix,
+				"last_traffic_at", p.LastAccessAt.UTC(),
+				"expires_at", p.ExpiresAt.UTC(),
+			)
 		} else if statErr != nil && !os.IsNotExist(statErr) {
 			return statErr
 		}
 		if !now.Before(p.ExpiresAt) {
 			expired = append(expired, p)
+			continue
 		}
+		m.logger().InfoContext(ctx, "preview alive",
+			"preview_id", p.ID,
+			"prefix", p.Prefix,
+			"last_traffic_at", p.LastAccessAt.UTC(),
+			"expires_at", p.ExpiresAt.UTC(),
+			"time_until_expiry", p.ExpiresAt.Sub(now).String(),
+		)
 	}
 	if len(expired) == 0 {
 		return nil
@@ -171,6 +193,13 @@ func (m *Manager) now() time.Time {
 		return m.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func (m *Manager) logger() *slog.Logger {
+	if m.Logger != nil {
+		return m.Logger
+	}
+	return slog.Default()
 }
 
 func randomToken(length int) (string, error) {

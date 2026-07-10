@@ -1,9 +1,11 @@
 package preview
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -192,6 +194,41 @@ func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	}
 	if updated.Status != StatusActive || reloader.calls != 1 {
 		t.Fatalf("status=%s reloads=%d", updated.Status, reloader.calls)
+	}
+}
+
+func TestSweepLogsTrafficAndAliveLease(t *testing.T) {
+	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	now := created
+	manager, _, _ := testManager(t, &now)
+	var logs bytes.Buffer
+	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	p, err := manager.Create(context.Background(), "active", 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	logs.Reset()
+	accessed := created.Add(50 * time.Minute)
+	if err := os.WriteFile(manager.Files.LogPath(p.ID), []byte("request\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(manager.Files.LogPath(p.ID), accessed, accessed); err != nil {
+		t.Fatal(err)
+	}
+	now = created.Add(70 * time.Minute)
+	if err := manager.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	output := logs.String()
+	for _, want := range []string{
+		`"msg":"preview traffic detected"`,
+		`"msg":"preview alive"`,
+		`"last_traffic_at":"2026-07-10T12:50:00Z"`,
+		`"time_until_expiry":"40m0s"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("logs do not contain %q:\n%s", want, output)
+		}
 	}
 }
 
