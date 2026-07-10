@@ -56,7 +56,6 @@
           if
             nixpkgs.lib.hasInfix "--database /var/lib/work-preview/work-preview.db" moduleCommand
             && !nixpkgs.lib.hasInfix "mysql" moduleCommand
-            && !nixpkgs.lib.hasInfix "--tls-cert" moduleCommand
           then "yes"
           else throw "work-preview must use its embedded SQLite database";
       } "touch $out";

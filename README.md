@@ -16,10 +16,6 @@ Then import this flake's `nixosModules.default` and configure:
 services.work-preview = {
   enable = true;
   groupMembers = [ "agent-user" ];
-
-  # Needed for offline or VPN deployments where ACME is unavailable.
-  tlsCertificateFile = "/run/secrets/cloudflare.crt";
-  tlsCertificateKeyFile = "/run/secrets/cloudflare.key";
 };
 ```
 

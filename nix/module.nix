@@ -22,20 +22,6 @@ in {
       description = "DNS suffix used for generated preview hostnames.";
     };
 
-    # Explicit certificates are needed for offline or VPN deployments where
-    # Caddy cannot complete ACME validation.
-    tlsCertificateFile = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      description = "Optional out-of-store path to a TLS certificate.";
-    };
-
-    tlsCertificateKeyFile = mkOption {
-      type = types.nullOr types.str;
-      default = null;
-      description = "Optional out-of-store path to the TLS private key.";
-    };
-
     rootCaddyfile = mkOption {
       type = types.str;
       default = "/etc/caddy/caddy_config";
@@ -86,10 +72,6 @@ in {
         assertion = lib.hasPrefix "/" cfg.rootCaddyfile;
         message = "services.work-preview.rootCaddyfile must be an absolute path";
       }
-      {
-        assertion = (cfg.tlsCertificateFile == null) == (cfg.tlsCertificateKeyFile == null);
-        message = "services.work-preview TLS certificate and key must be configured together";
-      }
     ];
 
     users.groups.work-preview.members = cfg.groupMembers;
@@ -115,36 +97,28 @@ in {
         RuntimeDirectoryMode = "0755";
         StateDirectory = "work-preview";
         StateDirectoryMode = "0750";
-        ExecStart = lib.escapeShellArgs (
-          [
-            "${cfg.package}/bin/work-preview"
-            "serve"
-            "--database"
-            "/var/lib/work-preview/work-preview.db"
-            "--domain"
-            cfg.domain
-            "--snippet-dir"
-            cfg.snippetDirectory
-            "--log-dir"
-            cfg.logDirectory
-            "--caddyfile"
-            cfg.rootCaddyfile
-            "--caddy-bin"
-            "${pkgs.caddy}/bin/caddy"
-            "--caddy-address"
-            cfg.caddyAdminAddress
-            "--ttl"
-            cfg.ttl
-            "--sweep-interval"
-            cfg.sweepInterval
-          ]
-          ++ lib.optionals (cfg.tlsCertificateFile != null) [
-            "--tls-cert"
-            cfg.tlsCertificateFile
-            "--tls-key"
-            cfg.tlsCertificateKeyFile
-          ]
-        );
+        ExecStart = lib.escapeShellArgs [
+          "${cfg.package}/bin/work-preview"
+          "serve"
+          "--database"
+          "/var/lib/work-preview/work-preview.db"
+          "--domain"
+          cfg.domain
+          "--snippet-dir"
+          cfg.snippetDirectory
+          "--log-dir"
+          cfg.logDirectory
+          "--caddyfile"
+          cfg.rootCaddyfile
+          "--caddy-bin"
+          "${pkgs.caddy}/bin/caddy"
+          "--caddy-address"
+          cfg.caddyAdminAddress
+          "--ttl"
+          cfg.ttl
+          "--sweep-interval"
+          cfg.sweepInterval
+        ];
         Restart = "on-failure";
         RestartSec = 5;
         NoNewPrivileges = true;

@@ -10,11 +10,9 @@ import (
 )
 
 type CaddyWriter struct {
-	SnippetDir     string
-	LogDir         string
-	Domain         string
-	Certificate    string
-	CertificateKey string
+	SnippetDir string
+	LogDir     string
+	Domain     string
 }
 
 func (w CaddyWriter) Write(p Preview) error {
@@ -24,18 +22,14 @@ func (w CaddyWriter) Write(p Preview) error {
 	if err := os.MkdirAll(w.LogDir, 0o750); err != nil {
 		return err
 	}
-	tls := ""
-	if w.Certificate != "" {
-		tls = fmt.Sprintf("\ttls %s %s\n", caddyQuote(w.Certificate), caddyQuote(w.CertificateKey))
-	}
 	content := fmt.Sprintf(`%s.%s {
-%s	log {
+	log {
 		output file %s
 		format json
 	}
 	reverse_proxy 127.0.0.1:%d
 }
-`, p.Prefix, w.Domain, tls, caddyQuote(w.LogPath(p.ID)), p.Port)
+`, p.Prefix, w.Domain, caddyQuote(w.LogPath(p.ID)), p.Port)
 	tmp, err := os.CreateTemp(w.SnippetDir, ".preview-*.tmp")
 	if err != nil {
 		return err

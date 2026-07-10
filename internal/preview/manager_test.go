@@ -94,7 +94,7 @@ func testManager(t *testing.T, now *time.Time) (*Manager, *memoryStore, *fakeRel
 		Store: store,
 		Files: CaddyWriter{
 			SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"),
-			Domain: "p.boringbison.xyz", Certificate: "/run/cert.pem", CertificateKey: "/run/key.pem",
+			Domain: "p.boringbison.xyz",
 		},
 		Reloader: reloader,
 		TTL:      time.Hour,
@@ -114,7 +114,7 @@ func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "feature-42.p.boringbison.xyz {\n\ttls \"/run/cert.pem\" \"/run/key.pem\""
+	want := "feature-42.p.boringbison.xyz {\n\tlog {"
 	if !strings.Contains(string(content), want) || !strings.Contains(string(content), "reverse_proxy 127.0.0.1:3000") {
 		t.Fatalf("unexpected snippet:\n%s", content)
 	}
@@ -127,24 +127,6 @@ func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	}
 	if reloader.calls != 1 || store.previews[p.ID].Status != StatusActive {
 		t.Fatalf("reloads=%d status=%s", reloader.calls, store.previews[p.ID].Status)
-	}
-}
-
-func TestCreateOmitsTLSDirectiveWithoutCertificate(t *testing.T) {
-	now := time.Now().UTC()
-	manager, _, _ := testManager(t, &now)
-	manager.Files.Certificate = ""
-	manager.Files.CertificateKey = ""
-	p, err := manager.Create(context.Background(), "automatic-tls", 3000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	content, err := os.ReadFile(manager.Files.SnippetPath(p.ID))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(content), "\ttls ") {
-		t.Fatalf("unexpected explicit TLS directive:\n%s", content)
 	}
 }
 

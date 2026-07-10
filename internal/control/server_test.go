@@ -59,7 +59,7 @@ func TestGRPCCreateListAndDelete(t *testing.T) {
 	reloader := &rpcReloader{}
 	manager := &preview.Manager{
 		Store:    store,
-		Files:    preview.CaddyWriter{SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"), Domain: "p.boringbison.xyz", Certificate: "/cert", CertificateKey: "/key"},
+		Files:    preview.CaddyWriter{SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"), Domain: "p.boringbison.xyz"},
 		Reloader: reloader, TTL: time.Hour,
 	}
 	listener := bufconn.Listen(1024 * 1024)

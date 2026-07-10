@@ -60,8 +60,6 @@ func serve(args []string) error {
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	snippetDir := fs.String("snippet-dir", "/run/work-preview/caddy", "generated Caddyfile directory")
 	logDir := fs.String("log-dir", "/var/log/work-preview", "Caddy access log directory")
-	certificate := fs.String("tls-cert", "", "Cloudflare origin certificate path")
-	certificateKey := fs.String("tls-key", "", "Cloudflare origin certificate key path")
 	caddyfile := fs.String("caddyfile", "/etc/caddy/caddy_config", "root Caddyfile importing generated snippets")
 	caddyBin := fs.String("caddy-bin", "caddy", "Caddy executable")
 	caddyAddress := fs.String("caddy-address", "", "Caddy admin API address")
@@ -72,9 +70,6 @@ func serve(args []string) error {
 	}
 	if *database == "" {
 		return errors.New("database is required")
-	}
-	if (*certificate == "") != (*certificateKey == "") {
-		return errors.New("tls-cert and tls-key must be provided together")
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -87,7 +82,6 @@ func serve(args []string) error {
 		Store: store,
 		Files: preview.CaddyWriter{
 			SnippetDir: *snippetDir, LogDir: *logDir, Domain: *domain,
-			Certificate: *certificate, CertificateKey: *certificateKey,
 		},
 		Reloader: preview.CommandReloader{Binary: *caddyBin, ConfigFile: *caddyfile, Address: *caddyAddress},
 		TTL:      *ttl,
