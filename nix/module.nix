@@ -80,6 +80,8 @@ in {
       group = "work-preview";
     };
 
+    environment.systemPackages = [cfg.package];
+
     systemd.tmpfiles.rules = [
       "d ${cfg.logDirectory} 0770 caddy work-preview - -"
     ];

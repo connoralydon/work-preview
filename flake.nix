@@ -58,6 +58,10 @@
             && !nixpkgs.lib.hasInfix "mysql" moduleCommand
           then "yes"
           else throw "work-preview must use its embedded SQLite database";
+        cliInstalled =
+          if nixpkgs.lib.any (package: nixpkgs.lib.getName package == "work-preview") evaluatedModule.environment.systemPackages
+          then "yes"
+          else throw "work-preview CLI must be installed system-wide";
       } "touch $out";
     });
 

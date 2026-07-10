@@ -21,6 +21,8 @@ services.work-preview = {
 
 The fixed WAL-enabled database is `/var/lib/work-preview/work-preview.db`. Lifecycle events are recorded transactionally in `preview_events`; no separate database service or port is used.
 
+See [CONFIGURATION.md](CONFIGURATION.md) for flake input, host module, DNS, and deployment guidance for a Nix config repository.
+
 ## Usage
 
 ```sh
