@@ -19,6 +19,7 @@
         src = self;
         vendorHash = "sha256-jSLflxFT1q5XF3qQj4hu+BGJWuaxz4ddG3D3Vl2v3H4=";
         subPackages = ["cmd/work-preview"];
+        doCheck = false;
         meta.mainProgram = "work-preview";
       };
     });
@@ -32,6 +33,16 @@
 
     checks = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
+      test = self.packages.${system}.default.overrideAttrs {
+        pname = "work-preview-test";
+        doCheck = true;
+        checkPhase = ''
+          runHook preCheck
+          go test ./...
+          runHook postCheck
+        '';
+        installPhase = "touch $out";
+      };
       evaluatedModule =
         (nixpkgs.lib.nixosSystem {
           inherit system;
@@ -49,7 +60,7 @@
         }).config;
       moduleCommand = evaluatedModule.systemd.services.work-preview.serviceConfig.ExecStart;
     in {
-      inherit (self.packages.${system}) default;
+      default = test;
       module = pkgs.runCommand "work-preview-module-check" {
         service = moduleCommand;
         embeddedDatabase =

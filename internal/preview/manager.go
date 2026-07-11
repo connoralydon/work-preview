@@ -27,6 +27,15 @@ type Manager struct {
 	BootID   string
 }
 
+type liveSiteLog struct {
+	PreviewID     string `json:"preview_id"`
+	Site          string `json:"site"`
+	Port          uint16 `json:"port"`
+	LastTrafficAt string `json:"last_traffic_at"`
+	ExpiresAt     string `json:"expires_at,omitempty"`
+	Persistent    bool   `json:"persistent"`
+}
+
 func (m *Manager) Create(ctx context.Context, prefix string, port uint32, persistent ...bool) (Preview, error) {
 	if port == 0 || port > 65535 {
 		return Preview{}, errors.New("port must be between 1 and 65535")
@@ -69,9 +78,10 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32, persis
 	}
 	m.logger().InfoContext(ctx, "preview created",
 		"preview_id", p.ID,
-		"prefix", p.Prefix,
+		"site", m.site(p),
 		"port", p.Port,
 		"expires_at", p.ExpiresAt,
+		"persistent", p.Persistent,
 	)
 	return p, nil
 }
@@ -89,7 +99,15 @@ func (m *Manager) Delete(ctx context.Context, id string) error {
 		_ = m.Files.Write(p)
 		return err
 	}
-	return m.Store.SetStatus(ctx, id, StatusDeleted, m.now())
+	if err := m.Store.SetStatus(ctx, id, StatusDeleted, m.now()); err != nil {
+		return err
+	}
+	m.logger().InfoContext(ctx, "preview deleted",
+		"preview_id", p.ID,
+		"site", m.site(p),
+		"port", p.Port,
+	)
+	return nil
 }
 
 func (m *Manager) Active(ctx context.Context) ([]Preview, error) {
@@ -108,6 +126,11 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			if err := m.Store.SetStatus(ctx, p.ID, StatusExpired, now); err != nil {
 				return err
 			}
+			m.logger().InfoContext(ctx, "preview expired",
+				"preview_id", p.ID,
+				"site", m.site(p),
+				"reason", "machine rebooted",
+			)
 			continue
 		}
 		active = append(active, p)
@@ -133,6 +156,7 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		}
 		return err
 	}
+	m.logLivePreviews(ctx, previews)
 	return nil
 }
 
@@ -143,10 +167,7 @@ func (m *Manager) Sweep(ctx context.Context) error {
 	}
 	now := m.now()
 	var expired []Preview
-	for _, p := range previews {
-		if p.Persistent {
-			continue
-		}
+	for i, p := range previews {
 		info, statErr := os.Stat(m.Files.LogPath(p.ID))
 		if statErr == nil && info.ModTime().After(p.LastAccessAt) {
 			p.LastAccessAt = info.ModTime()
@@ -154,28 +175,22 @@ func (m *Manager) Sweep(ctx context.Context) error {
 			if err := m.Store.Touch(ctx, p.ID, p.LastAccessAt, p.ExpiresAt); err != nil {
 				return err
 			}
+			previews[i] = p
 			m.logger().InfoContext(ctx, "preview traffic detected",
 				"preview_id", p.ID,
-				"prefix", p.Prefix,
+				"site", m.site(p),
 				"last_traffic_at", p.LastAccessAt.UTC(),
 				"expires_at", p.ExpiresAt.UTC(),
 			)
 		} else if statErr != nil && !os.IsNotExist(statErr) {
 			return statErr
 		}
-		if !now.Before(p.ExpiresAt) {
+		if !p.Persistent && !now.Before(p.ExpiresAt) {
 			expired = append(expired, p)
-			continue
 		}
-		m.logger().InfoContext(ctx, "preview alive",
-			"preview_id", p.ID,
-			"prefix", p.Prefix,
-			"last_traffic_at", p.LastAccessAt.UTC(),
-			"expires_at", p.ExpiresAt.UTC(),
-			"time_until_expiry", p.ExpiresAt.Sub(now).String(),
-		)
 	}
 	if len(expired) == 0 {
+		m.logLivePreviews(ctx, previews)
 		return nil
 	}
 	for _, p := range expired {
@@ -195,8 +210,41 @@ func (m *Manager) Sweep(ctx context.Context) error {
 			return err
 		}
 		_ = os.Remove(m.Files.LogPath(p.ID))
+		m.logger().InfoContext(ctx, "preview expired",
+			"preview_id", p.ID,
+			"site", m.site(p),
+			"reason", "inactivity",
+			"last_traffic_at", p.LastAccessAt.UTC(),
+		)
 	}
+	active, err := m.Store.Active(ctx)
+	if err != nil {
+		return err
+	}
+	m.logLivePreviews(ctx, active)
 	return nil
+}
+
+func (m *Manager) logLivePreviews(ctx context.Context, previews []Preview) {
+	sites := make([]liveSiteLog, 0, len(previews))
+	for _, p := range previews {
+		site := liveSiteLog{
+			PreviewID:     p.ID,
+			Site:          m.site(p),
+			Port:          p.Port,
+			LastTrafficAt: p.LastAccessAt.UTC().Format(time.RFC3339Nano),
+			Persistent:    p.Persistent,
+		}
+		if !p.Persistent {
+			site.ExpiresAt = p.ExpiresAt.UTC().Format(time.RFC3339Nano)
+		}
+		sites = append(sites, site)
+	}
+	m.logger().InfoContext(ctx, "live previews", "count", len(sites), "sites", sites)
+}
+
+func (m *Manager) site(p Preview) string {
+	return p.Prefix + "." + m.Files.Domain
 }
 
 func (m *Manager) recordReloadFailure(ctx context.Context, id string, reloadErr error) {

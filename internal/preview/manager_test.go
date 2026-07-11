@@ -170,6 +170,30 @@ func TestCreateUsesRandomHexPrefix(t *testing.T) {
 	}
 }
 
+func TestCreateAndDeleteLogLifecycle(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	manager, _, _ := testManager(t, &now)
+	var logs bytes.Buffer
+	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	p, err := manager.Create(context.Background(), "lifecycle", 3000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Delete(context.Background(), p.ID); err != nil {
+		t.Fatal(err)
+	}
+	output := logs.String()
+	for _, want := range []string{
+		`"msg":"preview created"`,
+		`"msg":"preview deleted"`,
+		`"site":"lifecycle.p.boringbison.xyz"`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("logs do not contain %q:\n%s", want, output)
+		}
+	}
+}
+
 func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
@@ -198,7 +222,7 @@ func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	}
 }
 
-func TestSweepLogsTrafficAndAliveLease(t *testing.T) {
+func TestSweepLogsTrafficAndLivePreviews(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
 	manager, _, _ := testManager(t, &now)
@@ -223,9 +247,10 @@ func TestSweepLogsTrafficAndAliveLease(t *testing.T) {
 	output := logs.String()
 	for _, want := range []string{
 		`"msg":"preview traffic detected"`,
-		`"msg":"preview alive"`,
+		`"msg":"live previews"`,
+		`"site":"active.p.boringbison.xyz"`,
 		`"last_traffic_at":"2026-07-10T12:50:00Z"`,
-		`"time_until_expiry":"40m0s"`,
+		`"count":1`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("logs do not contain %q:\n%s", want, output)
@@ -237,8 +262,11 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
 	manager, store, reloader := testManager(t, &now)
+	var logs bytes.Buffer
+	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
 	first, _ := manager.Create(context.Background(), "first", 3000)
 	second, _ := manager.Create(context.Background(), "second", 3001)
+	logs.Reset()
 	now = created.Add(time.Hour)
 	if err := manager.Sweep(context.Background()); err != nil {
 		t.Fatal(err)
@@ -253,6 +281,9 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 		if _, err := os.Stat(manager.Files.SnippetPath(p.ID)); !os.IsNotExist(err) {
 			t.Fatalf("snippet %s still exists", p.ID)
 		}
+	}
+	if output := logs.String(); strings.Count(output, `"msg":"preview expired"`) != 2 || !strings.Contains(output, `"msg":"live previews","count":0`) {
+		t.Fatalf("unexpected expiry logs:\n%s", output)
 	}
 }
 
