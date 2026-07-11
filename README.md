@@ -39,6 +39,6 @@ When `--prefix` is omitted, `expose` derives `<short-commit>-<branch>-<repo>` fr
 
 ```sh
 nix develop
-go test ./...
+work-preview-test
 nix flake check
 ```

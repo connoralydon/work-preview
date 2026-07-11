@@ -34,7 +34,7 @@
     checks = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
       test = self.packages.${system}.default.overrideAttrs {
-        pname = "work-preview-test";
+        pname = "work-preview-check";
         doCheck = true;
         checkPhase = ''
           runHook preCheck
@@ -78,6 +78,11 @@
 
     devShells = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
+      test = pkgs.writeShellApplication {
+        name = "work-preview-test";
+        runtimeInputs = [pkgs.go];
+        text = "go test ./...";
+      };
     in {
       default = pkgs.mkShell {
         packages = with pkgs; [
@@ -89,6 +94,7 @@
           protoc-gen-go
           protoc-gen-go-grpc
           sqlite
+          test
         ];
       };
     });
