@@ -10,6 +10,8 @@ type Preview struct {
 	CreatedAt    time.Time
 	LastAccessAt time.Time
 	ExpiresAt    time.Time
+	Persistent   bool
+	BootID       string
 }
 
 const (

@@ -24,9 +24,10 @@ type Manager struct {
 	TTL      time.Duration
 	Now      func() time.Time
 	Logger   *slog.Logger
+	BootID   string
 }
 
-func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Preview, error) {
+func (m *Manager) Create(ctx context.Context, prefix string, port uint32, persistent ...bool) (Preview, error) {
 	if port == 0 || port > 65535 {
 		return Preview{}, errors.New("port must be between 1 and 65535")
 	}
@@ -49,6 +50,9 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 	p := Preview{
 		ID: id, Prefix: prefix, Port: uint16(port), Status: StatusActive,
 		CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(m.TTL),
+	}
+	if len(persistent) > 0 && persistent[0] {
+		p.Persistent, p.BootID = true, m.BootID
 	}
 	if err := m.Store.Create(ctx, p); err != nil {
 		return Preview{}, err
@@ -97,6 +101,18 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	now := m.now()
+	var active []Preview
+	for _, p := range previews {
+		if p.Persistent && p.BootID != m.BootID {
+			if err := m.Store.SetStatus(ctx, p.ID, StatusExpired, now); err != nil {
+				return err
+			}
+			continue
+		}
+		active = append(active, p)
+	}
+	previews = active
 	files, err := filepath.Glob(filepath.Join(m.Files.SnippetDir, "*.caddy"))
 	if err != nil {
 		return err
@@ -128,6 +144,9 @@ func (m *Manager) Sweep(ctx context.Context) error {
 	now := m.now()
 	var expired []Preview
 	for _, p := range previews {
+		if p.Persistent {
+			continue
+		}
 		info, statErr := os.Stat(m.Files.LogPath(p.ID))
 		if statErr == nil && info.ModTime().After(p.LastAccessAt) {
 			p.LastAccessAt = info.ModTime()

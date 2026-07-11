@@ -13,7 +13,7 @@ func TestLoadMigrationsIsContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 1 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" {
+	if len(migrations) != 2 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" {
 		t.Fatalf("unexpected migrations: %+v", migrations)
 	}
 }
@@ -46,8 +46,8 @@ VALUES ('existing', 'existing', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMES
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if version := schemaVersion(t, store.db); version != 1 {
-		t.Fatalf("schema version=%d, want 1", version)
+	if version := schemaVersion(t, store.db); version != 2 {
+		t.Fatalf("schema version=%d, want 2", version)
 	}
 	var count int
 	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM previews WHERE id = 'existing'").Scan(&count); err != nil {
@@ -91,7 +91,7 @@ func TestMigrateRejectsNewerDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 2"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 3"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

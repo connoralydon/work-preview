@@ -102,6 +102,7 @@ func testManager(t *testing.T, now *time.Time) (*Manager, *memoryStore, *fakeRel
 		Reloader: reloader,
 		TTL:      time.Hour,
 		Now:      func() time.Time { return *now },
+		BootID:   "current-boot",
 	}
 	return manager, store, reloader
 }
@@ -252,6 +253,33 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 		if _, err := os.Stat(manager.Files.SnippetPath(p.ID)); !os.IsNotExist(err) {
 			t.Fatalf("snippet %s still exists", p.ID)
 		}
+	}
+}
+
+func TestPersistentPreviewSurvivesTTLAndExpiresAfterReboot(t *testing.T) {
+	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	now := created
+	manager, store, _ := testManager(t, &now)
+	p, err := manager.Create(context.Background(), "persistent", 3000, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = created.Add(24 * time.Hour)
+	if err := manager.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if store.previews[p.ID].Status != StatusActive {
+		t.Fatal("persistent preview expired during the same boot")
+	}
+	manager.BootID = "next-boot"
+	if err := manager.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if store.previews[p.ID].Status != StatusExpired {
+		t.Fatal("persistent preview remained active after reboot")
+	}
+	if _, err := os.Stat(manager.Files.SnippetPath(p.ID)); !os.IsNotExist(err) {
+		t.Fatal("persistent preview route was restored after reboot")
 	}
 }
 

@@ -1,0 +1,2 @@
+ALTER TABLE previews ADD COLUMN persistent INTEGER NOT NULL DEFAULT 0 CHECK (persistent IN (0, 1));
+ALTER TABLE previews ADD COLUMN boot_id TEXT NOT NULL DEFAULT '';
