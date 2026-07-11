@@ -82,10 +82,6 @@ func serve(args []string) error {
 		return err
 	}
 	defer store.Close()
-	bootID, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
-	if err != nil {
-		return fmt.Errorf("read machine boot ID: %w", err)
-	}
 	manager := &preview.Manager{
 		Store: store,
 		Files: preview.CaddyWriter{
@@ -94,7 +90,6 @@ func serve(args []string) error {
 		Reloader: preview.CommandReloader{Binary: *caddyBin, ConfigFile: *caddyfile, Address: *caddyAddress},
 		TTL:      *ttl,
 		Logger:   logger,
-		BootID:   strings.TrimSpace(string(bootID)),
 	}
 	if err := manager.Reconcile(ctx); err != nil {
 		return fmt.Errorf("reconcile previews: %w", err)
@@ -143,7 +138,6 @@ func expose(args []string) error {
 	prefix := fs.String("prefix", "", "hostname prefix (default: short commit, branch, and repository)")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	jsonOutput := fs.Bool("json", false, "print JSON")
-	untilReboot := fs.Bool("until-reboot", false, "keep forwarding until the machine reboots")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -155,7 +149,7 @@ func expose(args []string) error {
 		return err
 	}
 	defer conn.Close()
-	p, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{Port: uint32(*port), Prefix: *prefix, Persistent: *untilReboot})
+	p, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{Port: uint32(*port), Prefix: *prefix})
 	if err != nil {
 		return err
 	}

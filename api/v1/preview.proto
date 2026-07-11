@@ -14,9 +14,10 @@ service PreviewService {
 }
 
 message CreatePreviewRequest {
+  reserved 3;
+
   uint32 port = 1;
   string prefix = 2;
-  bool persistent = 3;
 }
 
 message DeletePreviewRequest {
@@ -24,6 +25,8 @@ message DeletePreviewRequest {
 }
 
 message Preview {
+  reserved 8;
+
   string id = 1;
   string prefix = 2;
   uint32 port = 3;
@@ -31,7 +34,6 @@ message Preview {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp last_access_at = 6;
   google.protobuf.Timestamp expires_at = 7;
-  bool persistent = 8;
 }
 
 message ListPreviewsResponse {

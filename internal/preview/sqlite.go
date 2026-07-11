@@ -49,8 +49,8 @@ func (s *SQLiteStore) Create(ctx context.Context, p Preview) error {
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `
-INSERT INTO previews (id, prefix, port, status, created_at, last_access_at, expires_at, persistent, boot_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt, p.Persistent, p.BootID)
+INSERT INTO previews (id, prefix, port, status, created_at, last_access_at, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt)
 	var sqliteErr interface{ Code() int }
 	if errors.As(err, &sqliteErr) && sqliteErr.Code()&0xff == 19 {
 		return ErrPrefixConflict
@@ -66,7 +66,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, p.ID, p.Prefix, p.Port, p.Status, p.Created
 
 func (s *SQLiteStore) Active(ctx context.Context) ([]Preview, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, prefix, port, status, created_at, last_access_at, expires_at, persistent, boot_id
+SELECT id, prefix, port, status, created_at, last_access_at, expires_at
 FROM previews WHERE status = 'active' ORDER BY created_at`)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ FROM previews WHERE status = 'active' ORDER BY created_at`)
 	var previews []Preview
 	for rows.Next() {
 		var p Preview
-		if err := rows.Scan(&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt, &p.Persistent, &p.BootID); err != nil {
+		if err := rows.Scan(&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt); err != nil {
 			return nil, err
 		}
 		previews = append(previews, p)
@@ -86,9 +86,9 @@ FROM previews WHERE status = 'active' ORDER BY created_at`)
 func (s *SQLiteStore) GetActive(ctx context.Context, id string) (Preview, error) {
 	var p Preview
 	err := s.db.QueryRowContext(ctx, `
-SELECT id, prefix, port, status, created_at, last_access_at, expires_at, persistent, boot_id
+SELECT id, prefix, port, status, created_at, last_access_at, expires_at
 FROM previews WHERE id = ? AND status = 'active'`, id).Scan(
-		&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt, &p.Persistent, &p.BootID,
+		&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Preview{}, ErrNotFound

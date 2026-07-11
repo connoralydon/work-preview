@@ -13,7 +13,7 @@ func TestLoadMigrationsIsContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 2 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" {
+	if len(migrations) != 3 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" || migrations[2].version != 3 || migrations[2].name != "003_remove_persistent.sql" {
 		t.Fatalf("unexpected migrations: %+v", migrations)
 	}
 }
@@ -46,8 +46,8 @@ VALUES ('existing', 'existing', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMES
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if version := schemaVersion(t, store.db); version != 2 {
-		t.Fatalf("schema version=%d, want 2", version)
+	if version := schemaVersion(t, store.db); version != 3 {
+		t.Fatalf("schema version=%d, want 3", version)
 	}
 	var count int
 	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM previews WHERE id = 'existing'").Scan(&count); err != nil {
@@ -55,6 +55,66 @@ VALUES ('existing', 'existing', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMES
 	}
 	if count != 1 {
 		t.Fatal("migration did not preserve existing preview")
+	}
+}
+
+func TestMigrateRemovesPersistentPreviews(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "work-preview.db")
+	db, err := sql.Open("sqlite", sqliteDSN(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations, err := loadMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := applyMigrations(ctx, db, migrations[:2]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO previews (id, prefix, port, status, created_at, last_access_at, expires_at, persistent, boot_id)
+VALUES
+  ('persistent', 'persistent', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'boot'),
+  ('regular', 'regular', 3001, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, '')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	active, err := store.Active(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 1 || active[0].ID != "regular" {
+		t.Fatalf("active previews after migration: %+v", active)
+	}
+	var status string
+	if err := store.db.QueryRowContext(ctx, "SELECT status FROM previews WHERE id = 'persistent'").Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != StatusExpired {
+		t.Fatalf("persistent preview status=%q, want expired", status)
+	}
+	var columns int
+	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_table_info('previews') WHERE name IN ('persistent', 'boot_id')").Scan(&columns); err != nil {
+		t.Fatal(err)
+	}
+	if columns != 0 {
+		t.Fatalf("persistent schema columns remaining=%d", columns)
+	}
+	var events int
+	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM preview_events WHERE preview_id = 'persistent' AND event_type = 'expired'").Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if events != 1 {
+		t.Fatalf("persistent preview expiry events=%d, want 1", events)
 	}
 }
 
@@ -91,7 +151,7 @@ func TestMigrateRejectsNewerDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 3"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 4"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

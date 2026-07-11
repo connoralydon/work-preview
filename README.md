@@ -29,14 +29,11 @@ See [CONFIGURATION.md](CONFIGURATION.md) for flake input, host module, DNS, and 
 
 ```sh
 work-preview expose --port 3000
-work-preview expose --port 3000 --until-reboot
 work-preview list
 work-preview delete <preview-id>
 ```
 
 When `--prefix` is omitted, `expose` derives `<short-commit>-<branch>-<repo>` from the current Git worktree and sanitizes it as a DNS label. Outside a Git repository, the CLI generates a random 12-character hexadecimal prefix. Pass `--prefix <name>` to override it.
-
-Pass `--until-reboot` to disable inactivity expiry for the current machine boot. The forwarding survives service restarts and is closed when the machine reboots.
 
 ## Development
 

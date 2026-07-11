@@ -27,7 +27,6 @@ type CreatePreviewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Port          uint32                 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	Prefix        string                 `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	Persistent    bool                   `protobuf:"varint,3,opt,name=persistent,proto3" json:"persistent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -74,13 +73,6 @@ func (x *CreatePreviewRequest) GetPrefix() string {
 		return x.Prefix
 	}
 	return ""
-}
-
-func (x *CreatePreviewRequest) GetPersistent() bool {
-	if x != nil {
-		return x.Persistent
-	}
-	return false
 }
 
 type DeletePreviewRequest struct {
@@ -136,7 +128,6 @@ type Preview struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastAccessAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_access_at,json=lastAccessAt,proto3" json:"last_access_at,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	Persistent    bool                   `protobuf:"varint,8,opt,name=persistent,proto3" json:"persistent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -220,13 +211,6 @@ func (x *Preview) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *Preview) GetPersistent() bool {
-	if x != nil {
-		return x.Persistent
-	}
-	return false
-}
-
 type ListPreviewsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Previews      []*Preview             `protobuf:"bytes,1,rep,name=previews,proto3" json:"previews,omitempty"`
@@ -275,15 +259,12 @@ var File_api_v1_preview_proto protoreflect.FileDescriptor
 
 const file_api_v1_preview_proto_rawDesc = "" +
 	"\n" +
-	"\x14api/v1/preview.proto\x12\x0eworkpreview.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"b\n" +
+	"\x14api/v1/preview.proto\x12\x0eworkpreview.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"H\n" +
 	"\x14CreatePreviewRequest\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x16\n" +
-	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x1e\n" +
-	"\n" +
-	"persistent\x18\x03 \x01(\bR\n" +
-	"persistent\"&\n" +
+	"\x06prefix\x18\x02 \x01(\tR\x06prefixJ\x04\b\x03\x10\x04\"&\n" +
 	"\x14DeletePreviewRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xaf\x02\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x95\x02\n" +
 	"\aPreview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x12\n" +
@@ -293,10 +274,7 @@ const file_api_v1_preview_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n" +
 	"\x0elast_access_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastAccessAt\x129\n" +
 	"\n" +
-	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1e\n" +
-	"\n" +
-	"persistent\x18\b \x01(\bR\n" +
-	"persistent\"K\n" +
+	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtJ\x04\b\b\x10\t\"K\n" +
 	"\x14ListPreviewsResponse\x123\n" +
 	"\bpreviews\x18\x01 \x03(\v2\x17.workpreview.v1.PreviewR\bpreviews2\xfd\x01\n" +
 	"\x0ePreviewService\x12N\n" +
