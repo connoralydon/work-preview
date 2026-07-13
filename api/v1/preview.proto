@@ -16,6 +16,9 @@ service PreviewService {
 message CreatePreviewRequest {
   uint32 port = 1;
   string prefix = 2;
+  string repository = 3;
+  string branch = 4;
+  string commit = 5;
 }
 
 message DeletePreviewRequest {
@@ -30,6 +33,9 @@ message Preview {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp last_access_at = 6;
   google.protobuf.Timestamp expires_at = 7;
+  string repository = 8;
+  string branch = 9;
+  string commit = 10;
 }
 
 message ListPreviewsResponse {

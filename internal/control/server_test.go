@@ -73,12 +73,17 @@ func TestGRPCCreateListAndDelete(t *testing.T) {
 	}
 	defer conn.Close()
 	client := previewv1.NewPreviewServiceClient(conn)
-	created, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{Prefix: "grpc", Port: 4321})
+	created, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{
+		Prefix: "grpc", Port: 4321, Repository: "work-preview", Branch: "main", Commit: "abc123",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if created.Url != "https://grpc.p.boringbison.xyz" || created.ExpiresAt.AsTime().Sub(created.CreatedAt.AsTime()) != time.Hour {
 		t.Fatalf("unexpected preview: %+v", created)
+	}
+	if created.Repository != "work-preview" || created.Branch != "main" || created.Commit != "abc123" {
+		t.Fatalf("missing source metadata: %+v", created)
 	}
 	listed, err := client.ListPreviews(context.Background(), &emptypb.Empty{})
 	if err != nil || len(listed.Previews) != 1 {

@@ -14,12 +14,13 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version := schemaVersion(t, store.db); version != 1 {
-		t.Fatalf("schema version=%d, want 1", version)
+	if version := schemaVersion(t, store.db); version != 2 {
+		t.Fatalf("schema version=%d, want 2", version)
 	}
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	first := Preview{
 		ID: "first", Prefix: "feature", Port: 3000, Status: StatusActive,
+		Repository: "work-preview", Branch: "feature/logging", Commit: "abc123def456",
 		CreatedAt: created, LastAccessAt: created, ExpiresAt: created.Add(time.Hour),
 	}
 	if err := store.Create(ctx, first); err != nil {
@@ -80,7 +81,7 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(active) != 1 || active[0].ID != second.ID {
+	if len(active) != 1 || active[0].ID != second.ID || active[0].Repository != second.Repository || active[0].Branch != second.Branch || active[0].Commit != second.Commit {
 		t.Fatalf("active previews after reopen: %+v", active)
 	}
 	var secondEvents int

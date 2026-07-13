@@ -1,9 +1,11 @@
 package preview
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,7 +109,7 @@ func testManager(t *testing.T, now *time.Time) (*Manager, *memoryStore, *fakeRel
 func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "feature-42", 3000)
+	p, err := manager.Create(context.Background(), "feature-42", 3000, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +133,35 @@ func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	}
 }
 
+func TestLifecycleAndHeartbeatLogsIncludeSourceAndExpiry(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	manager, _, _ := testManager(t, &now)
+	var logs bytes.Buffer
+	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+	p, err := manager.Create(context.Background(), "feature-42", 3000, Source{
+		Repository: "work-preview", Branch: "feature/logging", Commit: "abc123def456",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Heartbeat(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Delete(context.Background(), p.ID); err != nil {
+		t.Fatal(err)
+	}
+	output := logs.String()
+	for _, expected := range []string{
+		`"msg":"preview started"`, `"msg":"preview heartbeat"`, `"msg":"preview deleted"`,
+		`"repository":"work-preview"`, `"branch":"feature/logging"`, `"commit":"abc123def456"`,
+		`"ttl":3600000000000`, `"expires_at":"2026-07-10T13:00:00Z"`,
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("logs do not contain %q:\n%s", expected, output)
+		}
+	}
+}
+
 func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 	now := time.Now().UTC()
 	manager, _, _ := testManager(t, &now)
@@ -140,14 +171,14 @@ func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 	}{
 		{"bad_prefix", 3000}, {"-bad", 3000}, {"good", 0}, {"good", 65536},
 	} {
-		if _, err := manager.Create(context.Background(), test.prefix, test.port); err == nil {
+		if _, err := manager.Create(context.Background(), test.prefix, test.port, Source{}); err == nil {
 			t.Fatalf("Create(%q, %d) unexpectedly succeeded", test.prefix, test.port)
 		}
 	}
-	if _, err := manager.Create(context.Background(), "same", 3000); err != nil {
+	if _, err := manager.Create(context.Background(), "same", 3000, Source{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := manager.Create(context.Background(), "same", 3001); !errors.Is(err, ErrPrefixConflict) {
+	if _, err := manager.Create(context.Background(), "same", 3001, Source{}); !errors.Is(err, ErrPrefixConflict) {
 		t.Fatalf("got %v, want ErrPrefixConflict", err)
 	}
 }
@@ -155,7 +186,7 @@ func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 func TestCreateUsesRandomHexPrefix(t *testing.T) {
 	now := time.Now().UTC()
 	manager, _, _ := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "", 3000)
+	p, err := manager.Create(context.Background(), "", 3000, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +202,7 @@ func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "active", 3000)
+	p, err := manager.Create(context.Background(), "active", 3000, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,8 +230,8 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
 	manager, store, reloader := testManager(t, &now)
-	first, _ := manager.Create(context.Background(), "first", 3000)
-	second, _ := manager.Create(context.Background(), "second", 3001)
+	first, _ := manager.Create(context.Background(), "first", 3000, Source{})
+	second, _ := manager.Create(context.Background(), "second", 3001, Source{})
 	now = created.Add(time.Hour)
 	if err := manager.Sweep(context.Background()); err != nil {
 		t.Fatal(err)
@@ -221,7 +252,7 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 func TestDeleteRestoresSnippetWhenReloadFails(t *testing.T) {
 	now := time.Now().UTC()
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "restore", 3000)
+	p, err := manager.Create(context.Background(), "restore", 3000, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}

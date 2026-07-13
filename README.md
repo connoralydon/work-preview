@@ -19,7 +19,9 @@ services.work-preview = {
 };
 ```
 
-The fixed WAL-enabled database is `/var/lib/work-preview/work-preview.db`. Lifecycle events are recorded transactionally in `preview_events`; numbered embedded migrations are applied transactionally at startup using SQLite `user_version`. No separate database service or port is used.
+The fixed WAL-enabled database is `/var/lib/work-preview/work-preview.db`. Preview rows include Git repository, branch, and commit metadata when available. Lifecycle events are recorded transactionally in `preview_events`; numbered embedded migrations are applied transactionally at startup using SQLite `user_version`. No separate database service or port is used.
+
+The daemon logs successful preview starts, deletions, and expirations. Each sweep also emits a heartbeat for every open preview with its remaining TTL and expiry time; view these messages with `journalctl -u work-preview`.
 
 See [CONFIGURATION.md](CONFIGURATION.md) for flake input, host module, DNS, and deployment guidance for a Nix config repository.
 

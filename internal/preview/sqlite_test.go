@@ -48,8 +48,8 @@ func TestSQLiteStoreReadsAndUpdatesActivePreview(t *testing.T) {
 	store := &SQLiteStore{db: db}
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	expires := created.Add(time.Hour)
-	rows := sqlmock.NewRows([]string{"id", "prefix", "port", "status", "created_at", "last_access_at", "expires_at"}).
-		AddRow("id", "feature", 3000, StatusActive, created, created, expires)
+	rows := sqlmock.NewRows([]string{"id", "prefix", "port", "repository", "branch", "commit_hash", "status", "created_at", "last_access_at", "expires_at"}).
+		AddRow("id", "feature", 3000, "work-preview", "main", "abc123", StatusActive, created, created, expires)
 	mock.ExpectQuery("FROM previews WHERE status = 'active'").WillReturnRows(rows)
 	previews, err := store.Active(context.Background())
 	if err != nil {
