@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	previewv1 "github.com/connoralydon/work-preview/api/v1"
@@ -281,11 +283,16 @@ func listPreviews(args []string) error {
 	if *jsonOutput {
 		return json.NewEncoder(os.Stdout).Encode(response.Previews)
 	}
-	fmt.Println("ID\tURL\tPORT\tEXPIRES AT")
-	for _, p := range response.Previews {
-		fmt.Printf("%s\t%s\t%d\t%s\n", p.Id, p.Url, p.Port, p.ExpiresAt.AsTime().Format(time.RFC3339))
+	return writePreviewList(os.Stdout, response.Previews)
+}
+
+func writePreviewList(w io.Writer, previews []*previewv1.Preview) error {
+	table := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(table, "ID\tURL\tPORT\tEXPIRES AT")
+	for _, p := range previews {
+		fmt.Fprintf(table, "%s\t%s\t%d\t%s\n", p.Id, p.Url, p.Port, p.ExpiresAt.AsTime().Format(time.RFC3339))
 	}
-	return nil
+	return table.Flush()
 }
 
 func client(socket string) (*grpc.ClientConn, previewv1.PreviewServiceClient, error) {

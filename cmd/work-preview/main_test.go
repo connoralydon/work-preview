@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
+
+	previewv1 "github.com/connoralydon/work-preview/api/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestFormatGitPrefix(t *testing.T) {
@@ -49,5 +54,23 @@ func TestFormatGitPrefixFitsDNSLabel(t *testing.T) {
 	}
 	if strings.HasPrefix(prefix, "-") || strings.HasSuffix(prefix, "-") {
 		t.Fatalf("invalid DNS label: %q", prefix)
+	}
+}
+
+func TestWritePreviewListAlignsHeaders(t *testing.T) {
+	var output bytes.Buffer
+	expiresAt := time.Date(2026, time.July, 13, 12, 0, 0, 0, time.UTC)
+	previews := []*previewv1.Preview{{
+		Id: "abcdefghijklmnopqrst", Url: "https://example.p.boringbison.xyz", Port: 3000,
+		ExpiresAt: timestamppb.New(expiresAt),
+	}}
+
+	if err := writePreviewList(&output, previews); err != nil {
+		t.Fatal(err)
+	}
+	want := "ID                    URL                                PORT  EXPIRES AT\n" +
+		"abcdefghijklmnopqrst  https://example.p.boringbison.xyz  3000  2026-07-13T12:00:00Z\n"
+	if output.String() != want {
+		t.Fatalf("writePreviewList() output:\n%q\nwant:\n%q", output.String(), want)
 	}
 }
