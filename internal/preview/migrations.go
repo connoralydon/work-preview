@@ -58,7 +58,37 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load sqlite migrations: %w", err)
 	}
+	if err := adoptGitMetadataV2(ctx, db, migrations); err != nil {
+		return err
+	}
 	return applyMigrations(ctx, db, migrations)
+}
+
+func adoptGitMetadataV2(ctx context.Context, db *sql.DB, migrations []migration) error {
+	if len(migrations) != 4 || migrations[3].name != "004_git_metadata.sql" {
+		return nil
+	}
+	var version, metadataColumns, persistentColumns int
+	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return fmt.Errorf("read sqlite schema version: %w", err)
+	}
+	if version != 2 {
+		return nil
+	}
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_table_info('previews') WHERE name IN ('repository', 'branch', 'commit_hash')").Scan(&metadataColumns); err != nil {
+		return fmt.Errorf("inspect sqlite git metadata schema: %w", err)
+	}
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_table_info('previews') WHERE name IN ('persistent', 'boot_id')").Scan(&persistentColumns); err != nil {
+		return fmt.Errorf("inspect sqlite persistent schema: %w", err)
+	}
+	if metadataColumns != 3 || persistentColumns != 0 {
+		return nil
+	}
+	// The force-pushed branch used version 2 for this final schema.
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 4"); err != nil {
+		return fmt.Errorf("adopt sqlite git metadata schema: %w", err)
+	}
+	return nil
 }
 
 func applyMigrations(ctx context.Context, db *sql.DB, migrations []migration) error {

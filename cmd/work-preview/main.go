@@ -127,6 +127,10 @@ func sweep(ctx context.Context, manager *preview.Manager, logger *slog.Logger, i
 		case <-ticker.C:
 			if err := manager.Sweep(ctx); err != nil {
 				logger.ErrorContext(ctx, "preview sweep failed", "error", err)
+				continue
+			}
+			if err := manager.Heartbeat(ctx); err != nil {
+				logger.ErrorContext(ctx, "preview heartbeat failed", "error", err)
 			}
 		}
 	}
@@ -141,15 +145,23 @@ func expose(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	repository, branch, commit, inGit := gitMetadata()
 	if *prefix == "" {
-		*prefix = defaultGitPrefix()
+		if inGit {
+			*prefix = formatGitPrefix(commit, branch, repository)
+		}
+		if *prefix == "" {
+			*prefix = randomHexID()
+		}
 	}
 	conn, client, err := client(*socket)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	p, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{Port: uint32(*port), Prefix: *prefix})
+	p, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{
+		Port: uint32(*port), Prefix: *prefix, Repository: repository, Branch: branch, Commit: commit,
+	})
 	if err != nil {
 		return err
 	}
@@ -160,27 +172,23 @@ func expose(args []string) error {
 	return nil
 }
 
-func defaultGitPrefix() string {
+func gitMetadata() (repository, branch, commit string, ok bool) {
 	root, err := gitOutput("rev-parse", "--show-toplevel")
 	if err != nil {
-		return randomHexID()
+		return "", "", "", false
 	}
-	commit, err := gitOutput("rev-parse", "--short=12", "HEAD")
+	commit, err = gitOutput("rev-parse", "--short=12", "HEAD")
 	if err != nil {
-		return randomHexID()
+		return "", "", "", false
 	}
-	branch, err := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
+	branch, err = gitOutput("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return randomHexID()
+		return "", "", "", false
 	}
 	if branch == "HEAD" {
 		branch = "detached"
 	}
-	prefix := formatGitPrefix(commit, branch, filepath.Base(root))
-	if prefix == "" {
-		return randomHexID()
-	}
-	return prefix
+	return filepath.Base(root), branch, commit, true
 }
 
 func randomHexID() string {
@@ -273,6 +281,7 @@ func listPreviews(args []string) error {
 	if *jsonOutput {
 		return json.NewEncoder(os.Stdout).Encode(response.Previews)
 	}
+	fmt.Println("ID\tURL\tPORT\tEXPIRES AT")
 	for _, p := range response.Previews {
 		fmt.Printf("%s\t%s\t%d\t%s\n", p.Id, p.Url, p.Port, p.ExpiresAt.AsTime().Format(time.RFC3339))
 	}

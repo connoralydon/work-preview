@@ -27,6 +27,9 @@ type CreatePreviewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Port          uint32                 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
 	Prefix        string                 `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	Repository    string                 `protobuf:"bytes,4,opt,name=repository,proto3" json:"repository,omitempty"`
+	Branch        string                 `protobuf:"bytes,5,opt,name=branch,proto3" json:"branch,omitempty"`
+	Commit        string                 `protobuf:"bytes,6,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -71,6 +74,27 @@ func (x *CreatePreviewRequest) GetPort() uint32 {
 func (x *CreatePreviewRequest) GetPrefix() string {
 	if x != nil {
 		return x.Prefix
+	}
+	return ""
+}
+
+func (x *CreatePreviewRequest) GetRepository() string {
+	if x != nil {
+		return x.Repository
+	}
+	return ""
+}
+
+func (x *CreatePreviewRequest) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *CreatePreviewRequest) GetCommit() string {
+	if x != nil {
+		return x.Commit
 	}
 	return ""
 }
@@ -128,6 +152,9 @@ type Preview struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastAccessAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_access_at,json=lastAccessAt,proto3" json:"last_access_at,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Repository    string                 `protobuf:"bytes,9,opt,name=repository,proto3" json:"repository,omitempty"`
+	Branch        string                 `protobuf:"bytes,10,opt,name=branch,proto3" json:"branch,omitempty"`
+	Commit        string                 `protobuf:"bytes,11,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -211,6 +238,27 @@ func (x *Preview) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Preview) GetRepository() string {
+	if x != nil {
+		return x.Repository
+	}
+	return ""
+}
+
+func (x *Preview) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *Preview) GetCommit() string {
+	if x != nil {
+		return x.Commit
+	}
+	return ""
+}
+
 type ListPreviewsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Previews      []*Preview             `protobuf:"bytes,1,rep,name=previews,proto3" json:"previews,omitempty"`
@@ -259,12 +307,17 @@ var File_api_v1_preview_proto protoreflect.FileDescriptor
 
 const file_api_v1_preview_proto_rawDesc = "" +
 	"\n" +
-	"\x14api/v1/preview.proto\x12\x0eworkpreview.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"H\n" +
+	"\x14api/v1/preview.proto\x12\x0eworkpreview.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
 	"\x14CreatePreviewRequest\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x16\n" +
-	"\x06prefix\x18\x02 \x01(\tR\x06prefixJ\x04\b\x03\x10\x04\"&\n" +
+	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x1e\n" +
+	"\n" +
+	"repository\x18\x04 \x01(\tR\n" +
+	"repository\x12\x16\n" +
+	"\x06branch\x18\x05 \x01(\tR\x06branch\x12\x16\n" +
+	"\x06commit\x18\x06 \x01(\tR\x06commitJ\x04\b\x03\x10\x04\"&\n" +
 	"\x14DeletePreviewRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x95\x02\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xe5\x02\n" +
 	"\aPreview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x12\n" +
@@ -274,7 +327,13 @@ const file_api_v1_preview_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n" +
 	"\x0elast_access_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\flastAccessAt\x129\n" +
 	"\n" +
-	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAtJ\x04\b\b\x10\t\"K\n" +
+	"expires_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1e\n" +
+	"\n" +
+	"repository\x18\t \x01(\tR\n" +
+	"repository\x12\x16\n" +
+	"\x06branch\x18\n" +
+	" \x01(\tR\x06branch\x12\x16\n" +
+	"\x06commit\x18\v \x01(\tR\x06commitJ\x04\b\b\x10\t\"K\n" +
 	"\x14ListPreviewsResponse\x123\n" +
 	"\bpreviews\x18\x01 \x03(\v2\x17.workpreview.v1.PreviewR\bpreviews2\xfd\x01\n" +
 	"\x0ePreviewService\x12N\n" +

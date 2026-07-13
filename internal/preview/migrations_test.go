@@ -13,7 +13,7 @@ func TestLoadMigrationsIsContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 3 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" || migrations[2].version != 3 || migrations[2].name != "003_remove_persistent.sql" {
+	if len(migrations) != 4 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" || migrations[2].version != 3 || migrations[2].name != "003_remove_persistent.sql" || migrations[3].version != 4 || migrations[3].name != "004_git_metadata.sql" {
 		t.Fatalf("unexpected migrations: %+v", migrations)
 	}
 }
@@ -46,8 +46,8 @@ VALUES ('existing', 'existing', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMES
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if version := schemaVersion(t, store.db); version != 3 {
-		t.Fatalf("schema version=%d, want 3", version)
+	if version := schemaVersion(t, store.db); version != 4 {
+		t.Fatalf("schema version=%d, want 4", version)
 	}
 	var count int
 	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM previews WHERE id = 'existing'").Scan(&count); err != nil {
@@ -118,6 +118,50 @@ VALUES
 	}
 }
 
+func TestMigrateAdoptsDivergentGitMetadataVersion(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "work-preview.db")
+	db, err := sql.Open("sqlite", sqliteDSN(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	migrations, err := loadMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, migrations[0].sql); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+ALTER TABLE previews ADD COLUMN repository TEXT NOT NULL DEFAULT '';
+ALTER TABLE previews ADD COLUMN branch TEXT NOT NULL DEFAULT '';
+ALTER TABLE previews ADD COLUMN commit_hash TEXT NOT NULL DEFAULT '';
+PRAGMA user_version = 2;
+INSERT INTO previews (id, prefix, port, repository, branch, commit_hash, status, created_at, last_access_at, expires_at)
+VALUES ('existing', 'existing', 3000, 'work-preview', 'main', 'abc123', 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := OpenSQLite(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if version := schemaVersion(t, store.db); version != 4 {
+		t.Fatalf("schema version=%d, want 4", version)
+	}
+	active, err := store.Active(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(active) != 1 || active[0].Repository != "work-preview" || active[0].Branch != "main" || active[0].Commit != "abc123" {
+		t.Fatalf("unexpected adopted preview: %+v", active)
+	}
+}
+
 func TestMigrationFailureRollsBackAndKeepsPreviousVersion(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", sqliteDSN(filepath.Join(t.TempDir(), "work-preview.db")))
@@ -151,7 +195,7 @@ func TestMigrateRejectsNewerDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 4"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 5"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

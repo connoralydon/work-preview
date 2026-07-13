@@ -34,7 +34,13 @@ type liveSiteLog struct {
 	ExpiresAt     string `json:"expires_at"`
 }
 
-func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Preview, error) {
+type Source struct {
+	Repository string
+	Branch     string
+	Commit     string
+}
+
+func (m *Manager) Create(ctx context.Context, prefix string, port uint32, source Source) (Preview, error) {
 	if port == 0 || port > 65535 {
 		return Preview{}, errors.New("port must be between 1 and 65535")
 	}
@@ -56,6 +62,7 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 	now := m.now()
 	p := Preview{
 		ID: id, Prefix: prefix, Port: uint16(port), Status: StatusActive,
+		Repository: source.Repository, Branch: source.Branch, Commit: source.Commit,
 		CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(m.TTL),
 	}
 	if err := m.Store.Create(ctx, p); err != nil {
@@ -75,6 +82,9 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32) (Previ
 		"preview_id", p.ID,
 		"site", m.site(p),
 		"port", p.Port,
+		"repository", p.Repository,
+		"branch", p.Branch,
+		"commit", p.Commit,
 		"expires_at", p.ExpiresAt,
 	)
 	return p, nil
@@ -100,6 +110,9 @@ func (m *Manager) Delete(ctx context.Context, id string) error {
 		"preview_id", p.ID,
 		"site", m.site(p),
 		"port", p.Port,
+		"repository", p.Repository,
+		"branch", p.Branch,
+		"commit", p.Commit,
 	)
 	return nil
 }
@@ -191,6 +204,9 @@ func (m *Manager) Sweep(ctx context.Context) error {
 			"preview_id", p.ID,
 			"site", m.site(p),
 			"reason", "inactivity",
+			"repository", p.Repository,
+			"branch", p.Branch,
+			"commit", p.Commit,
 			"last_traffic_at", p.LastAccessAt.UTC(),
 		)
 	}
@@ -199,6 +215,37 @@ func (m *Manager) Sweep(ctx context.Context) error {
 		return err
 	}
 	m.logLivePreviews(ctx, active)
+	return nil
+}
+
+func (m *Manager) Heartbeat(ctx context.Context) error {
+	previews, err := m.Store.Active(ctx)
+	if err != nil {
+		return err
+	}
+	logger := m.logger()
+	if len(previews) == 0 {
+		logger.InfoContext(ctx, "preview heartbeat", "open_previews", 0)
+		return nil
+	}
+	now := m.now()
+	for _, p := range previews {
+		remaining := p.ExpiresAt.Sub(now)
+		if remaining < 0 {
+			remaining = 0
+		}
+		logger.InfoContext(ctx, "preview heartbeat",
+			"open_previews", len(previews),
+			"preview_id", p.ID,
+			"site", m.site(p),
+			"port", p.Port,
+			"repository", p.Repository,
+			"branch", p.Branch,
+			"commit", p.Commit,
+			"ttl", remaining,
+			"expires_at", p.ExpiresAt,
+		)
+	}
 	return nil
 }
 

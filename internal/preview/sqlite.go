@@ -58,6 +58,12 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.
 	if err != nil {
 		return err
 	}
+	if p.Repository != "" || p.Branch != "" || p.Commit != "" {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE previews SET repository = ?, branch = ?, commit_hash = ? WHERE id = ?`, p.Repository, p.Branch, p.Commit, p.ID); err != nil {
+			return err
+		}
+	}
 	if err := insertEvent(ctx, tx, p.ID, EventCreated, p.CreatedAt, ""); err != nil {
 		return err
 	}
@@ -66,7 +72,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.
 
 func (s *SQLiteStore) Active(ctx context.Context) ([]Preview, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, prefix, port, status, created_at, last_access_at, expires_at
+SELECT id, prefix, port, repository, branch, commit_hash, status, created_at, last_access_at, expires_at
 FROM previews WHERE status = 'active' ORDER BY created_at`)
 	if err != nil {
 		return nil, err
@@ -75,7 +81,7 @@ FROM previews WHERE status = 'active' ORDER BY created_at`)
 	var previews []Preview
 	for rows.Next() {
 		var p Preview
-		if err := rows.Scan(&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Prefix, &p.Port, &p.Repository, &p.Branch, &p.Commit, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt); err != nil {
 			return nil, err
 		}
 		previews = append(previews, p)
@@ -86,9 +92,9 @@ FROM previews WHERE status = 'active' ORDER BY created_at`)
 func (s *SQLiteStore) GetActive(ctx context.Context, id string) (Preview, error) {
 	var p Preview
 	err := s.db.QueryRowContext(ctx, `
-SELECT id, prefix, port, status, created_at, last_access_at, expires_at
+SELECT id, prefix, port, repository, branch, commit_hash, status, created_at, last_access_at, expires_at
 FROM previews WHERE id = ? AND status = 'active'`, id).Scan(
-		&p.ID, &p.Prefix, &p.Port, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt,
+		&p.ID, &p.Prefix, &p.Port, &p.Repository, &p.Branch, &p.Commit, &p.Status, &p.CreatedAt, &p.LastAccessAt, &p.ExpiresAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Preview{}, ErrNotFound

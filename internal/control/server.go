@@ -20,7 +20,9 @@ type Server struct {
 }
 
 func (s *Server) CreatePreview(ctx context.Context, req *previewv1.CreatePreviewRequest) (*previewv1.Preview, error) {
-	p, err := s.Manager.Create(ctx, req.GetPrefix(), req.GetPort())
+	p, err := s.Manager.Create(ctx, req.GetPrefix(), req.GetPort(), preview.Source{
+		Repository: req.GetRepository(), Branch: req.GetBranch(), Commit: req.GetCommit(),
+	})
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -56,6 +58,9 @@ func (s *Server) proto(p preview.Preview) *previewv1.Preview {
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 		LastAccessAt: timestamppb.New(p.LastAccessAt),
 		ExpiresAt:    timestamppb.New(p.ExpiresAt),
+		Repository:   p.Repository,
+		Branch:       p.Branch,
+		Commit:       p.Commit,
 	}
 }
 
