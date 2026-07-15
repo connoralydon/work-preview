@@ -14,5 +14,6 @@ The default prefix is `<short-commit>-<branch>-<repo>`, with random hexadecimal 
 - Enter the toolchain with `nix develop`.
 - Generate protobuf code with `go generate ./...`.
 - Run `work-preview-test` inside `nix develop` and `nix flake check` before finishing.
+- After editing and testing, commit and push the changes.
 - Keep SQLite as the source of truth and write Caddy snippets atomically.
 - Add schema changes as contiguous numbered files under `internal/preview/migrations/`.
