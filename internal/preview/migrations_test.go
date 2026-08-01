@@ -13,7 +13,7 @@ func TestLoadMigrationsIsContiguous(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrations) != 4 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" || migrations[2].version != 3 || migrations[2].name != "003_remove_persistent.sql" || migrations[3].version != 4 || migrations[3].name != "004_git_metadata.sql" {
+	if len(migrations) != 5 || migrations[0].version != 1 || migrations[0].name != "001_initial.sql" || migrations[1].version != 2 || migrations[1].name != "002_persistent.sql" || migrations[2].version != 3 || migrations[2].name != "003_remove_persistent.sql" || migrations[3].version != 4 || migrations[3].name != "004_git_metadata.sql" || migrations[4].version != 5 || migrations[4].name != "005_public.sql" {
 		t.Fatalf("unexpected migrations: %+v", migrations)
 	}
 }
@@ -46,8 +46,8 @@ VALUES ('existing', 'existing', 3000, 'active', CURRENT_TIMESTAMP, CURRENT_TIMES
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if version := schemaVersion(t, store.db); version != 4 {
-		t.Fatalf("schema version=%d, want 4", version)
+	if version := schemaVersion(t, store.db); version != 5 {
+		t.Fatalf("schema version=%d, want 5", version)
 	}
 	var count int
 	if err := store.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM previews WHERE id = 'existing'").Scan(&count); err != nil {
@@ -150,8 +150,8 @@ VALUES ('existing', 'existing', 3000, 'work-preview', 'main', 'abc123', 'active'
 		t.Fatal(err)
 	}
 	defer store.Close()
-	if version := schemaVersion(t, store.db); version != 4 {
-		t.Fatalf("schema version=%d, want 4", version)
+	if version := schemaVersion(t, store.db); version != 5 {
+		t.Fatalf("schema version=%d, want 5", version)
 	}
 	active, err := store.Active(ctx)
 	if err != nil {
@@ -195,7 +195,7 @@ func TestMigrateRejectsNewerDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 5"); err != nil {
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 6"); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

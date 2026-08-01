@@ -10,26 +10,30 @@ import (
 )
 
 type CaddyWriter struct {
-	SnippetDir string
-	LogDir     string
-	Domain     string
+	SnippetDir   string
+	LogDir       string
+	Domain       string
+	PublicDomain string
 }
 
 func (w CaddyWriter) Write(p Preview) error {
+	if p.Public && w.PublicDomain == "" {
+		return fmt.Errorf("public domain is not configured")
+	}
 	if err := os.MkdirAll(w.SnippetDir, 0o755); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(w.LogDir, 0o750); err != nil {
 		return err
 	}
-	content := fmt.Sprintf(`%s.%s {
+	content := fmt.Sprintf(`%s {
 	log {
 		output file %s
 		format json
 	}
 	reverse_proxy 127.0.0.1:%d
 }
-`, p.Prefix, w.Domain, caddyQuote(w.LogPath(p.ID)), p.Port)
+`, w.Hostname(p), caddyQuote(w.LogPath(p.ID)), p.Port)
 	tmp, err := os.CreateTemp(w.SnippetDir, ".preview-*.tmp")
 	if err != nil {
 		return err
@@ -68,6 +72,14 @@ func (w CaddyWriter) SnippetPath(id string) string {
 
 func (w CaddyWriter) LogPath(id string) string {
 	return filepath.Join(w.LogDir, id+".json")
+}
+
+func (w CaddyWriter) Hostname(p Preview) string {
+	domain := w.Domain
+	if p.Public {
+		domain = w.PublicDomain
+	}
+	return p.Prefix + "." + domain
 }
 
 func caddyQuote(value string) string { return strconv.Quote(value) }

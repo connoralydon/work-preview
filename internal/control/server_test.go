@@ -58,13 +58,16 @@ func TestGRPCCreateListAndDelete(t *testing.T) {
 	store := &rpcStore{previews: map[string]preview.Preview{}}
 	reloader := &rpcReloader{}
 	manager := &preview.Manager{
-		Store:    store,
-		Files:    preview.CaddyWriter{SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"), Domain: "p.boringbison.xyz"},
+		Store: store,
+		Files: preview.CaddyWriter{
+			SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"),
+			Domain: "p.boringbison.xyz", PublicDomain: "public-preview.example.com",
+		},
 		Reloader: reloader, TTL: time.Hour,
 	}
 	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer()
-	previewv1.RegisterPreviewServiceServer(server, &control.Server{Manager: manager, Domain: "p.boringbison.xyz"})
+	previewv1.RegisterPreviewServiceServer(server, &control.Server{Manager: manager})
 	go server.Serve(listener)
 	t.Cleanup(server.Stop)
 	conn, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -85,18 +88,30 @@ func TestGRPCCreateListAndDelete(t *testing.T) {
 	if created.Repository != "work-preview" || created.Branch != "main" || created.Commit != "abc123" {
 		t.Fatalf("missing source metadata: %+v", created)
 	}
+	publicPreview, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{
+		Prefix: "public", Port: 4322, Public: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if publicPreview.Url != "https://public.public-preview.example.com" || !publicPreview.Public {
+		t.Fatalf("unexpected public preview: %+v", publicPreview)
+	}
 	listed, err := client.ListPreviews(context.Background(), &emptypb.Empty{})
-	if err != nil || len(listed.Previews) != 1 {
+	if err != nil || len(listed.Previews) != 2 {
 		t.Fatalf("list: %+v, %v", listed, err)
 	}
 	if _, err := client.DeletePreview(context.Background(), &previewv1.DeletePreviewRequest{Id: created.Id}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.DeletePreview(context.Background(), &previewv1.DeletePreviewRequest{Id: publicPreview.Id}); err != nil {
 		t.Fatal(err)
 	}
 	listed, err = client.ListPreviews(context.Background(), &emptypb.Empty{})
 	if err != nil || len(listed.Previews) != 0 {
 		t.Fatalf("list after delete: %+v, %v", listed, err)
 	}
-	if reloader.calls != 2 {
-		t.Fatalf("reloads=%d, want create and delete", reloader.calls)
+	if reloader.calls != 4 {
+		t.Fatalf("reloads=%d, want two creates and two deletes", reloader.calls)
 	}
 }

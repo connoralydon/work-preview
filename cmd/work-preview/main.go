@@ -62,6 +62,7 @@ func serve(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	database := fs.String("database", "/var/lib/work-preview/work-preview.db", "SQLite database file")
 	domain := fs.String("domain", "p.boringbison.xyz", "preview domain suffix")
+	publicDomain := fs.String("public-domain", "", "public preview domain suffix")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	snippetDir := fs.String("snippet-dir", "/run/work-preview/caddy", "generated Caddyfile directory")
 	logDir := fs.String("log-dir", "/var/log/work-preview", "Caddy access log directory")
@@ -87,7 +88,7 @@ func serve(args []string) error {
 	manager := &preview.Manager{
 		Store: store,
 		Files: preview.CaddyWriter{
-			SnippetDir: *snippetDir, LogDir: *logDir, Domain: *domain,
+			SnippetDir: *snippetDir, LogDir: *logDir, Domain: *domain, PublicDomain: *publicDomain,
 		},
 		Reloader: preview.CommandReloader{Binary: *caddyBin, ConfigFile: *caddyfile, Address: *caddyAddress},
 		TTL:      *ttl,
@@ -110,7 +111,7 @@ func serve(args []string) error {
 		return err
 	}
 	grpcServer := grpc.NewServer()
-	previewv1.RegisterPreviewServiceServer(grpcServer, &control.Server{Manager: manager, Domain: *domain})
+	previewv1.RegisterPreviewServiceServer(grpcServer, &control.Server{Manager: manager})
 	go sweep(ctx, manager, logger, *sweepInterval)
 	go func() {
 		<-ctx.Done()
@@ -142,6 +143,7 @@ func expose(args []string) error {
 	fs := flag.NewFlagSet("expose", flag.ContinueOnError)
 	port := fs.Uint("port", 0, "loopback dev-server port")
 	prefix := fs.String("prefix", "", "hostname prefix (default: short commit, branch, and repository)")
+	public := fs.Bool("public", false, "use the daemon's public preview domain")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	jsonOutput := fs.Bool("json", false, "print JSON")
 	if err := fs.Parse(args); err != nil {
@@ -162,7 +164,7 @@ func expose(args []string) error {
 	}
 	defer conn.Close()
 	p, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{
-		Port: uint32(*port), Prefix: *prefix, Repository: repository, Branch: branch, Commit: commit,
+		Port: uint32(*port), Prefix: *prefix, Repository: repository, Branch: branch, Commit: commit, Public: *public,
 	})
 	if err != nil {
 		return err

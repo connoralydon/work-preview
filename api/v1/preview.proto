@@ -21,6 +21,7 @@ message CreatePreviewRequest {
   string repository = 4;
   string branch = 5;
   string commit = 6;
+  bool public = 7;
 }
 
 message DeletePreviewRequest {
@@ -40,6 +41,7 @@ message Preview {
   string repository = 9;
   string branch = 10;
   string commit = 11;
+  bool public = 12;
 }
 
 message ListPreviewsResponse {

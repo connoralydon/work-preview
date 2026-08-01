@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	previewv1 "github.com/connoralydon/work-preview/api/v1"
 	"github.com/connoralydon/work-preview/internal/preview"
@@ -16,11 +15,10 @@ import (
 type Server struct {
 	previewv1.UnimplementedPreviewServiceServer
 	Manager *preview.Manager
-	Domain  string
 }
 
 func (s *Server) CreatePreview(ctx context.Context, req *previewv1.CreatePreviewRequest) (*previewv1.Preview, error) {
-	p, err := s.Manager.Create(ctx, req.GetPrefix(), req.GetPort(), preview.Source{
+	p, err := s.Manager.Create(ctx, req.GetPrefix(), req.GetPort(), req.GetPublic(), preview.Source{
 		Repository: req.GetRepository(), Branch: req.GetBranch(), Commit: req.GetCommit(),
 	})
 	if err != nil {
@@ -54,13 +52,14 @@ func (s *Server) ListPreviews(ctx context.Context, _ *emptypb.Empty) (*previewv1
 func (s *Server) proto(p preview.Preview) *previewv1.Preview {
 	return &previewv1.Preview{
 		Id: p.ID, Prefix: p.Prefix, Port: uint32(p.Port),
-		Url:          fmt.Sprintf("https://%s.%s", p.Prefix, s.Domain),
+		Url:          "https://" + s.Manager.Files.Hostname(p),
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 		LastAccessAt: timestamppb.New(p.LastAccessAt),
 		ExpiresAt:    timestamppb.New(p.ExpiresAt),
 		Repository:   p.Repository,
 		Branch:       p.Branch,
 		Commit:       p.Commit,
+		Public:       p.Public,
 	}
 }
 

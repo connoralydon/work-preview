@@ -9,6 +9,7 @@ type Preview struct {
 	Repository   string
 	Branch       string
 	Commit       string
+	Public       bool
 	Status       string
 	CreatedAt    time.Time
 	LastAccessAt time.Time

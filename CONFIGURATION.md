@@ -39,6 +39,7 @@ modules = [
   services.work-preview = {
     enable = true;
     domain = "p.boringbison.xyz";
+    publicDomain = "public-preview.example.com";
     groupMembers = [ "agent-user" ];
   };
 }
@@ -51,6 +52,7 @@ The defaults assume the standard NixOS Caddy service and its generated root conf
 ## Infrastructure
 
 - Point `*.p.boringbison.xyz` at the host running Caddy.
+- If `publicDomain` is set, point its wildcard DNS record at the host too. Previews use it only when `work-preview expose --public` is requested.
 - Keep development servers on `127.0.0.1`; only Caddy should accept public traffic.
 - Let the parent Caddy deployment handle TLS and ports 80/443.
 - Do not import `/run/work-preview/caddy/*.caddy` from more than one Caddy instance.
@@ -63,6 +65,7 @@ Build the host before activation using the config repository's normal deployment
 ```sh
 systemctl status work-preview
 work-preview expose --port 3000 --json
+work-preview expose --port 3000 --public --json
 work-preview list
 work-preview delete <preview-id>
 ```

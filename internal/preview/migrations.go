@@ -65,7 +65,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 }
 
 func adoptGitMetadataV2(ctx context.Context, db *sql.DB, migrations []migration) error {
-	if len(migrations) != 4 || migrations[3].name != "004_git_metadata.sql" {
+	if len(migrations) < 4 || migrations[3].name != "004_git_metadata.sql" {
 		return nil
 	}
 	var version, metadataColumns, persistentColumns int

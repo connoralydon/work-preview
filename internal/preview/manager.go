@@ -40,9 +40,12 @@ type Source struct {
 	Commit     string
 }
 
-func (m *Manager) Create(ctx context.Context, prefix string, port uint32, source Source) (Preview, error) {
+func (m *Manager) Create(ctx context.Context, prefix string, port uint32, public bool, source Source) (Preview, error) {
 	if port == 0 || port > 65535 {
 		return Preview{}, errors.New("port must be between 1 and 65535")
+	}
+	if public && m.Files.PublicDomain == "" {
+		return Preview{}, errors.New("public domain is not configured")
 	}
 	if prefix == "" {
 		var err error
@@ -61,7 +64,7 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32, source
 	}
 	now := m.now()
 	p := Preview{
-		ID: id, Prefix: prefix, Port: uint16(port), Status: StatusActive,
+		ID: id, Prefix: prefix, Port: uint16(port), Public: public, Status: StatusActive,
 		Repository: source.Repository, Branch: source.Branch, Commit: source.Commit,
 		CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(m.TTL),
 	}
@@ -265,7 +268,7 @@ func (m *Manager) logLivePreviews(ctx context.Context, previews []Preview) {
 }
 
 func (m *Manager) site(p Preview) string {
-	return p.Prefix + "." + m.Files.Domain
+	return m.Files.Hostname(p)
 }
 
 func (m *Manager) recordReloadFailure(ctx context.Context, id string, reloadErr error) {

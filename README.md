@@ -15,6 +15,7 @@ Then import this flake's `nixosModules.default` and configure:
 ```nix
 services.work-preview = {
   enable = true;
+  publicDomain = "public-preview.example.com";
   groupMembers = [ "agent-user" ];
 };
 ```
@@ -29,11 +30,14 @@ See [CONFIGURATION.md](CONFIGURATION.md) for flake input, host module, DNS, and 
 
 ```sh
 work-preview expose --port 3000
+work-preview expose --port 3000 --public
 work-preview list
 work-preview delete <preview-id>
 ```
 
 When `--prefix` is omitted, `expose` derives `<short-commit>-<branch>-<repo>` from the current Git worktree and sanitizes it as a DNS label. Outside a Git repository, the CLI generates a random 12-character hexadecimal prefix. Pass `--prefix <name>` to override it.
+
+Configure `services.work-preview.publicDomain` (or `serve --public-domain`) and pass `expose --public` to use that DNS suffix instead of the default preview domain.
 
 ## Development
 

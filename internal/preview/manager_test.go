@@ -27,7 +27,7 @@ func newMemoryStore() *memoryStore { return &memoryStore{previews: map[string]Pr
 
 func (s *memoryStore) Create(_ context.Context, p Preview) error {
 	for _, existing := range s.previews {
-		if existing.Prefix == p.Prefix && existing.Status == StatusActive {
+		if existing.Prefix == p.Prefix && existing.Public == p.Public && existing.Status == StatusActive {
 			return ErrPrefixConflict
 		}
 	}
@@ -97,7 +97,7 @@ func testManager(t *testing.T, now *time.Time) (*Manager, *memoryStore, *fakeRel
 		Store: store,
 		Files: CaddyWriter{
 			SnippetDir: filepath.Join(root, "caddy"), LogDir: filepath.Join(root, "logs"),
-			Domain: "p.boringbison.xyz",
+			Domain: "p.boringbison.xyz", PublicDomain: "public-preview.example.com",
 		},
 		Reloader: reloader,
 		TTL:      time.Hour,
@@ -109,7 +109,7 @@ func testManager(t *testing.T, now *time.Time) (*Manager, *memoryStore, *fakeRel
 func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "feature-42", 3000, Source{})
+	p, err := manager.Create(context.Background(), "feature-42", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,12 +133,36 @@ func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 	}
 }
 
+func TestCreatePublicPreviewUsesPublicDomain(t *testing.T) {
+	now := time.Now().UTC()
+	manager, _, _ := testManager(t, &now)
+	if _, err := manager.Create(context.Background(), "shared", 3000, false, Source{}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := manager.Create(context.Background(), "shared", 3000, true, Source{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(manager.Files.SnippetPath(p.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.Public || !strings.Contains(string(content), "shared.public-preview.example.com {") {
+		t.Fatalf("unexpected public preview: %+v\n%s", p, content)
+	}
+
+	manager.Files.PublicDomain = ""
+	if _, err := manager.Create(context.Background(), "unconfigured", 3001, true, Source{}); err == nil {
+		t.Fatal("public preview without a configured public domain unexpectedly succeeded")
+	}
+}
+
 func TestLifecycleAndHeartbeatLogsIncludeSourceAndExpiry(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	manager, _, _ := testManager(t, &now)
 	var logs bytes.Buffer
 	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
-	p, err := manager.Create(context.Background(), "feature-42", 3000, Source{
+	p, err := manager.Create(context.Background(), "feature-42", 3000, false, Source{
 		Repository: "work-preview", Branch: "feature/logging", Commit: "abc123def456",
 	})
 	if err != nil {
@@ -171,14 +195,14 @@ func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 	}{
 		{"bad_prefix", 3000}, {"-bad", 3000}, {"good", 0}, {"good", 65536},
 	} {
-		if _, err := manager.Create(context.Background(), test.prefix, test.port, Source{}); err == nil {
+		if _, err := manager.Create(context.Background(), test.prefix, test.port, false, Source{}); err == nil {
 			t.Fatalf("Create(%q, %d) unexpectedly succeeded", test.prefix, test.port)
 		}
 	}
-	if _, err := manager.Create(context.Background(), "same", 3000, Source{}); err != nil {
+	if _, err := manager.Create(context.Background(), "same", 3000, false, Source{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := manager.Create(context.Background(), "same", 3001, Source{}); !errors.Is(err, ErrPrefixConflict) {
+	if _, err := manager.Create(context.Background(), "same", 3001, false, Source{}); !errors.Is(err, ErrPrefixConflict) {
 		t.Fatalf("got %v, want ErrPrefixConflict", err)
 	}
 }
@@ -186,7 +210,7 @@ func TestCreateValidatesInputAndPrefixConflicts(t *testing.T) {
 func TestCreateUsesRandomHexPrefix(t *testing.T) {
 	now := time.Now().UTC()
 	manager, _, _ := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "", 3000, Source{})
+	p, err := manager.Create(context.Background(), "", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +227,7 @@ func TestCreateAndDeleteLogLifecycle(t *testing.T) {
 	manager, _, _ := testManager(t, &now)
 	var logs bytes.Buffer
 	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
-	p, err := manager.Create(context.Background(), "lifecycle", 3000, Source{})
+	p, err := manager.Create(context.Background(), "lifecycle", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +250,7 @@ func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "active", 3000, Source{})
+	p, err := manager.Create(context.Background(), "active", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +280,7 @@ func TestSweepLogsTrafficAndLivePreviews(t *testing.T) {
 	manager, _, _ := testManager(t, &now)
 	var logs bytes.Buffer
 	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
-	p, err := manager.Create(context.Background(), "active", 3000, Source{})
+	p, err := manager.Create(context.Background(), "active", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,8 +316,8 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 	manager, store, reloader := testManager(t, &now)
 	var logs bytes.Buffer
 	manager.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
-	first, _ := manager.Create(context.Background(), "first", 3000, Source{})
-	second, _ := manager.Create(context.Background(), "second", 3001, Source{})
+	first, _ := manager.Create(context.Background(), "first", 3000, false, Source{})
+	second, _ := manager.Create(context.Background(), "second", 3001, false, Source{})
 	logs.Reset()
 	now = created.Add(time.Hour)
 	if err := manager.Sweep(context.Background()); err != nil {
@@ -318,7 +342,7 @@ func TestSweepExpiresAllIdlePreviewsWithOneReload(t *testing.T) {
 func TestDeleteRestoresSnippetWhenReloadFails(t *testing.T) {
 	now := time.Now().UTC()
 	manager, store, reloader := testManager(t, &now)
-	p, err := manager.Create(context.Background(), "restore", 3000, Source{})
+	p, err := manager.Create(context.Background(), "restore", 3000, false, Source{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +371,7 @@ func TestReconcileRemovesStaleFilesAndRebuildsActiveRoutes(t *testing.T) {
 	if err := os.WriteFile(stale, []byte("stale"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	p := Preview{ID: "active-id", Prefix: "active", Port: 3000, Status: StatusActive, CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(time.Hour)}
+	p := Preview{ID: "active-id", Prefix: "active", Port: 3000, Public: true, Status: StatusActive, CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(time.Hour)}
 	store.previews[p.ID] = p
 	if err := manager.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
@@ -355,8 +379,12 @@ func TestReconcileRemovesStaleFilesAndRebuildsActiveRoutes(t *testing.T) {
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
 		t.Fatal("stale snippet was not removed")
 	}
-	if _, err := os.Stat(manager.Files.SnippetPath(p.ID)); err != nil {
+	content, err := os.ReadFile(manager.Files.SnippetPath(p.ID))
+	if err != nil {
 		t.Fatalf("active snippet not rebuilt: %v", err)
+	}
+	if !strings.Contains(string(content), "active.public-preview.example.com {") {
+		t.Fatalf("public route not rebuilt:\n%s", content)
 	}
 	if reloader.calls != 1 {
 		t.Fatalf("reloads=%d", reloader.calls)

@@ -27,8 +27,8 @@ func TestSQLiteStoreCreateMapsDuplicatePrefix(t *testing.T) {
 	now := time.Now().UTC()
 	p := Preview{ID: "id", Prefix: "same", Port: 3000, Status: StatusActive, CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(time.Hour)}
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO previews (id, prefix, port, status, created_at, last_access_at, expires_at)\nVALUES (?, ?, ?, ?, ?, ?, ?)")).
-		WithArgs(p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt).
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO previews (id, prefix, port, public, status, created_at, last_access_at, expires_at)\nVALUES (?, ?, ?, ?, ?, ?, ?, ?)")).
+		WithArgs(p.ID, p.Prefix, p.Port, p.Public, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt).
 		WillReturnError(constraintError{})
 	mock.ExpectRollback()
 	if err := store.Create(context.Background(), p); !errors.Is(err, ErrPrefixConflict) {
@@ -48,14 +48,14 @@ func TestSQLiteStoreReadsAndUpdatesActivePreview(t *testing.T) {
 	store := &SQLiteStore{db: db}
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	expires := created.Add(time.Hour)
-	rows := sqlmock.NewRows([]string{"id", "prefix", "port", "repository", "branch", "commit_hash", "status", "created_at", "last_access_at", "expires_at"}).
-		AddRow("id", "feature", 3000, "work-preview", "main", "abc123", StatusActive, created, created, expires)
+	rows := sqlmock.NewRows([]string{"id", "prefix", "port", "repository", "branch", "commit_hash", "public", "status", "created_at", "last_access_at", "expires_at"}).
+		AddRow("id", "feature", 3000, "work-preview", "main", "abc123", true, StatusActive, created, created, expires)
 	mock.ExpectQuery("FROM previews WHERE status = 'active'").WillReturnRows(rows)
 	previews, err := store.Active(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(previews) != 1 || previews[0].Port != 3000 || previews[0].Prefix != "feature" {
+	if len(previews) != 1 || previews[0].Port != 3000 || previews[0].Prefix != "feature" || !previews[0].Public {
 		t.Fatalf("unexpected previews: %+v", previews)
 	}
 	accessed := created.Add(10 * time.Minute)
@@ -97,7 +97,7 @@ func TestSQLiteStoreCreatesPreviewAndEventInOneTransaction(t *testing.T) {
 	p := Preview{ID: "id", Prefix: "feature", Port: 3000, Status: StatusActive, CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(time.Hour)}
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO previews").
-		WithArgs(p.ID, p.Prefix, p.Port, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt).
+		WithArgs(p.ID, p.Prefix, p.Port, p.Public, p.Status, p.CreatedAt, p.LastAccessAt, p.ExpiresAt).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("INSERT INTO preview_events").
 		WithArgs(p.ID, EventCreated, p.CreatedAt, nil).

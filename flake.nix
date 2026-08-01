@@ -53,6 +53,7 @@
               services.work-preview = {
                 enable = true;
                 package = pkgs.writeShellScriptBin "work-preview" "exit 0";
+                publicDomain = "public-preview.example.com";
                 groupMembers = ["agent"];
               };
             }
@@ -73,6 +74,10 @@
           if nixpkgs.lib.any (package: nixpkgs.lib.getName package == "work-preview") evaluatedModule.environment.systemPackages
           then "yes"
           else throw "work-preview CLI must be installed system-wide";
+        publicDomainConfigured =
+          if nixpkgs.lib.hasInfix "--public-domain public-preview.example.com" moduleCommand
+          then "yes"
+          else throw "work-preview public domain must be passed to the daemon";
       } "touch $out";
     });
 

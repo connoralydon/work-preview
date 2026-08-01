@@ -2,10 +2,38 @@ package preview
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestSQLiteAllowsSamePrefixOnDefaultAndPublicDomains(t *testing.T) {
+	ctx := context.Background()
+	store, err := OpenSQLite(ctx, filepath.Join(t.TempDir(), "work-preview.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	now := time.Now().UTC()
+	defaultPreview := Preview{
+		ID: "default", Prefix: "shared", Port: 3000, Status: StatusActive,
+		CreatedAt: now, LastAccessAt: now, ExpiresAt: now.Add(time.Hour),
+	}
+	if err := store.Create(ctx, defaultPreview); err != nil {
+		t.Fatal(err)
+	}
+	publicPreview := defaultPreview
+	publicPreview.ID = "public"
+	publicPreview.Public = true
+	if err := store.Create(ctx, publicPreview); err != nil {
+		t.Fatalf("create public preview with shared prefix: %v", err)
+	}
+	publicPreview.ID = "duplicate-public"
+	if err := store.Create(ctx, publicPreview); !errors.Is(err, ErrPrefixConflict) {
+		t.Fatalf("duplicate public prefix error=%v, want ErrPrefixConflict", err)
+	}
+}
 
 func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	ctx := context.Background()
@@ -14,8 +42,8 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if version := schemaVersion(t, store.db); version != 4 {
-		t.Fatalf("schema version=%d, want 4", version)
+	if version := schemaVersion(t, store.db); version != 5 {
+		t.Fatalf("schema version=%d, want 5", version)
 	}
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	first := Preview{
@@ -37,6 +65,7 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	second := first
 	second.ID = "second"
 	second.Port = 3001
+	second.Public = true
 	second.CreatedAt = accessed.Add(2 * time.Minute)
 	second.LastAccessAt = second.CreatedAt
 	second.ExpiresAt = second.CreatedAt.Add(time.Hour)
@@ -81,7 +110,7 @@ func TestSQLiteLifecycleEventsAndPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(active) != 1 || active[0].ID != second.ID || active[0].Repository != second.Repository || active[0].Branch != second.Branch || active[0].Commit != second.Commit {
+	if len(active) != 1 || active[0].ID != second.ID || active[0].Repository != second.Repository || active[0].Branch != second.Branch || active[0].Commit != second.Commit || !active[0].Public {
 		t.Fatalf("active previews after reopen: %+v", active)
 	}
 	var secondEvents int
