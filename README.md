@@ -38,6 +38,7 @@ work-preview delete <preview-id>
 When `--prefix` is omitted, `expose` derives `<short-commit>-<branch>-<repo>` from the current Git worktree and sanitizes it as a DNS label. Outside a Git repository, the CLI generates a random 12-character hexadecimal prefix. Pass `--prefix <name>` to override it.
 
 Configure `services.work-preview.publicDomain` (or `serve --public-domain`) and pass `expose --public` to use that DNS suffix instead of the default preview domain.
+Each preview URL has its own inactivity lease. Accessing one URL does not extend another URL that points to the same loopback port.
 
 ## Development
 

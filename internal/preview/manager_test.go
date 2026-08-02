@@ -274,6 +274,39 @@ func TestSweepUsesAccessLogTrafficToExtendTTL(t *testing.T) {
 	}
 }
 
+func TestSweepTracksTrafficPerURLWhenPreviewsShareSource(t *testing.T) {
+	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	now := created
+	manager, store, _ := testManager(t, &now)
+	private, err := manager.Create(context.Background(), "shared", 3000, false, Source{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := manager.Create(context.Background(), "shared", 3000, true, Source{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	accessed := created.Add(50 * time.Minute)
+	if err := os.WriteFile(manager.Files.LogPath(public.ID), []byte("request\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(manager.Files.LogPath(public.ID), accessed, accessed); err != nil {
+		t.Fatal(err)
+	}
+
+	now = created.Add(70 * time.Minute)
+	if err := manager.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if store.previews[private.ID].Status != StatusExpired {
+		t.Fatalf("unaccessed private URL status=%s, want expired", store.previews[private.ID].Status)
+	}
+	updated := store.previews[public.ID]
+	if updated.Status != StatusActive || !updated.LastAccessAt.Equal(accessed) || !updated.ExpiresAt.Equal(accessed.Add(time.Hour)) {
+		t.Fatalf("accessed public URL has unexpected lease: %+v", updated)
+	}
+}
+
 func TestSweepLogsTrafficAndLivePreviews(t *testing.T) {
 	created := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	now := created
