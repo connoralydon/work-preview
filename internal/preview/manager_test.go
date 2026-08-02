@@ -135,11 +135,13 @@ func TestCreateWritesAtomicCaddySnippet(t *testing.T) {
 
 func TestCreatePublicPreviewUsesPublicDomain(t *testing.T) {
 	now := time.Now().UTC()
-	manager, _, _ := testManager(t, &now)
+	manager, store, _ := testManager(t, &now)
 	if _, err := manager.Create(context.Background(), "shared", 3000, false, Source{}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := manager.Create(context.Background(), "shared", 3000, true, Source{})
+	p, err := manager.Create(context.Background(), "shared", 3000, true, Source{
+		Repository: "work-preview", Branch: "main", Commit: "abc123",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,6 +151,13 @@ func TestCreatePublicPreviewUsesPublicDomain(t *testing.T) {
 	}
 	if !p.Public || !strings.Contains(string(content), "shared.public-preview.example.com {") {
 		t.Fatalf("unexpected public preview: %+v\n%s", p, content)
+	}
+	if p.Repository != "" || p.Branch != "" || p.Commit != "" {
+		t.Fatalf("public preview retained Git metadata: %+v", p)
+	}
+	stored := store.previews[p.ID]
+	if stored.Repository != "" || stored.Branch != "" || stored.Commit != "" {
+		t.Fatalf("stored public preview retained Git metadata: %+v", stored)
 	}
 
 	manager.Files.PublicDomain = ""

@@ -90,12 +90,16 @@ func TestGRPCCreateListAndDelete(t *testing.T) {
 	}
 	publicPreview, err := client.CreatePreview(context.Background(), &previewv1.CreatePreviewRequest{
 		Prefix: "public", Port: 4322, Public: true,
+		Repository: "work-preview", Branch: "main", Commit: "abc123",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if publicPreview.Url != "https://public.public-preview.example.com" || !publicPreview.Public {
 		t.Fatalf("unexpected public preview: %+v", publicPreview)
+	}
+	if publicPreview.Repository != "" || publicPreview.Branch != "" || publicPreview.Commit != "" {
+		t.Fatalf("public preview retained Git metadata: %+v", publicPreview)
 	}
 	listed, err := client.ListPreviews(context.Background(), &emptypb.Empty{})
 	if err != nil || len(listed.Previews) != 2 {

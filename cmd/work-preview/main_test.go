@@ -47,6 +47,29 @@ func TestRandomHexID(t *testing.T) {
 	}
 }
 
+func TestPreparePublicPreviewOmitsGitMetadata(t *testing.T) {
+	prefix, repository, branch, commit := preparePreview(true, "", "work-preview", "feature/public", "abc123", true)
+	if len(prefix) != 12 {
+		t.Fatalf("prefix length=%d, want 12: %q", len(prefix), prefix)
+	}
+	if _, err := hex.DecodeString(prefix); err != nil {
+		t.Fatalf("prefix=%q is not hexadecimal: %v", prefix, err)
+	}
+	if repository != "" || branch != "" || commit != "" {
+		t.Fatalf("Git metadata was not omitted: repository=%q branch=%q commit=%q", repository, branch, commit)
+	}
+}
+
+func TestPreparePublicPreviewPreservesExplicitPrefix(t *testing.T) {
+	prefix, repository, branch, commit := preparePreview(true, "demo", "work-preview", "main", "abc123", true)
+	if prefix != "demo" {
+		t.Fatalf("prefix=%q, want demo", prefix)
+	}
+	if repository != "" || branch != "" || commit != "" {
+		t.Fatalf("Git metadata was not omitted: repository=%q branch=%q commit=%q", repository, branch, commit)
+	}
+}
+
 func TestFormatGitPrefixFitsDNSLabel(t *testing.T) {
 	prefix := formatGitPrefix("1234567890abcdef", strings.Repeat("long-branch-", 10), strings.Repeat("repository-", 5))
 	if len(prefix) > 63 {

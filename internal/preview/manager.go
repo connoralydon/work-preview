@@ -47,6 +47,9 @@ func (m *Manager) Create(ctx context.Context, prefix string, port uint32, public
 	if public && m.Files.PublicDomain == "" {
 		return Preview{}, errors.New("public domain is not configured")
 	}
+	if public {
+		source = Source{}
+	}
 	if prefix == "" {
 		var err error
 		prefix, err = randomHexToken(6)

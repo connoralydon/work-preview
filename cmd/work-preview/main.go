@@ -142,7 +142,7 @@ func sweep(ctx context.Context, manager *preview.Manager, logger *slog.Logger, i
 func expose(args []string) error {
 	fs := flag.NewFlagSet("expose", flag.ContinueOnError)
 	port := fs.Uint("port", 0, "loopback dev-server port")
-	prefix := fs.String("prefix", "", "hostname prefix (default: short commit, branch, and repository)")
+	prefix := fs.String("prefix", "", "hostname prefix (default: Git-based for private previews, random for public previews)")
 	public := fs.Bool("public", false, "use the daemon's public preview domain")
 	socket := fs.String("socket", defaultSocket, "gRPC Unix socket")
 	jsonOutput := fs.Bool("json", false, "print JSON")
@@ -150,14 +150,7 @@ func expose(args []string) error {
 		return err
 	}
 	repository, branch, commit, inGit := gitMetadata()
-	if *prefix == "" {
-		if inGit {
-			*prefix = formatGitPrefix(commit, branch, repository)
-		}
-		if *prefix == "" {
-			*prefix = randomHexID()
-		}
-	}
+	*prefix, repository, branch, commit = preparePreview(*public, *prefix, repository, branch, commit, inGit)
 	conn, client, err := client(*socket)
 	if err != nil {
 		return err
@@ -174,6 +167,20 @@ func expose(args []string) error {
 	}
 	fmt.Printf("%s\t%s\n", p.Id, p.Url)
 	return nil
+}
+
+func preparePreview(public bool, prefix, repository, branch, commit string, inGit bool) (string, string, string, string) {
+	if public {
+		repository, branch, commit = "", "", ""
+		inGit = false
+	}
+	if prefix == "" && inGit {
+		prefix = formatGitPrefix(commit, branch, repository)
+	}
+	if prefix == "" {
+		prefix = randomHexID()
+	}
+	return prefix, repository, branch, commit
 }
 
 func gitMetadata() (repository, branch, commit string, ok bool) {
