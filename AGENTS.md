@@ -3,7 +3,7 @@
 ## Expose a dev server
 
 1. Start the dev server on an unused loopback port. Never bind it publicly.
-2. Run `work-preview expose --port <port> --json`.
+2. Run `work-preview expose --port <port> --json`. Add `--public` only when the user explicitly requests a public preview.
 3. Report the returned HTTPS URL and retain the returned preview ID.
 4. Delete it with `work-preview delete <id>` when finished. Otherwise it expires after one hour without HTTP traffic.
 
